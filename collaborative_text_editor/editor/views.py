@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 import json
 
+
 def register(request):
     if request.method == 'POST':
         form = RegisterForm(request.POST)
@@ -40,10 +41,14 @@ def document_create(request):
 @login_required
 def document_edit(request, pk):
     document = get_object_or_404(Document, pk=pk, owner=request.user)
-    if request.method == 'POST' and request.headers.get('Content-Type') == 'application/json':
-        data = json.loads(request.body)
-        content = data.get('content', '')
-        document.content = content
-        document.save()
-        return JsonResponse({'status': 'saved'})
-    return render(request, 'editor.html', {'document': document})
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            content = data.get('content', {})
+            document.content = json.dumps(content)
+            document.save()
+            return JsonResponse({'status': 'saved'})
+        except json.JSONDecodeError:
+            return JsonResponse({'error': 'Invalid JSON'}, status=400)
+    else:
+        return render(request, 'editor.html', {'document': document})

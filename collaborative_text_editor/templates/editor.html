@@ -13,7 +13,10 @@
 <div id="editor-container"></div>
 
 <!-- Safely include the content using json_script -->
-{{ document.content|default:'""'|json_script:"initial-content" }}
+{{ document.content|default:'{}'|json_script:"initial-content" }}
+
+<!-- Manual Save Button -->
+<button id="save-button">Save</button>
 {% endblock %}
 
 {% block extra_script %}
@@ -22,6 +25,27 @@
 
 <!-- Initialize Quill editor -->
 <script>
+    // Function to retrieve a cookie by name
+    function getCookie(name) {
+        let cookieValue = null;
+        if (document.cookie && document.cookie !== '') {
+            const cookies = document.cookie.split(';');
+            for (let i = 0; i < cookies.length; i++) {
+                const cookie = cookies[i].trim();
+                // Check if this cookie string begins with the name we want
+                if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                    break;
+                }
+            }
+        }
+        return cookieValue;
+    }
+
+    // Retrieve CSRF token from cookies
+    const csrftoken = getCookie('csrftoken');
+
+    // Initialize Quill editor
     var quill = new Quill('#editor-container', {
         theme: 'snow'
     });
@@ -33,14 +57,13 @@
         quill.setContents(initialContent);
     }
 
-    // Autosave content
-    quill.on('text-change', function() {
-        // Send the content to the server via fetch API
-        var content = JSON.stringify(quill.getContents());
+    // Function to save content to the server
+    function saveContent() {
+        var content = quill.getContents(); // Get the delta object directly
         fetch("{% url 'document_edit' document.pk %}", {
             method: 'POST',
             headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
+                'X-CSRFToken': csrftoken,
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({'content': content})
@@ -53,10 +76,27 @@
         })
         .then(data => {
             console.log('Success:', data);
+            // Optional: Show a save confirmation to the user
         })
         .catch(error => {
             console.error('There was a problem with the fetch operation:', error);
+            // Optional: Notify the user about the error
         });
+    }
+
+    // Autosave content with debouncing (save after 2 seconds of inactivity)
+    let timeoutId;
+    quill.on('text-change', function() {
+        clearTimeout(timeoutId);
+        timeoutId = setTimeout(function() {
+            saveContent();
+        }, 2000); // 2000 milliseconds = 2 seconds
+    });
+
+    // Manual Save Button Event Listener
+    document.getElementById('save-button').addEventListener('click', function() {
+        saveContent();
+        alert('Document saved successfully.');
     });
 </script>
 {% endblock %}
