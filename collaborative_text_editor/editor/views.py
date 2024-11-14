@@ -41,14 +41,4 @@ def document_create(request):
 @login_required
 def document_edit(request, pk):
     document = get_object_or_404(Document, pk=pk, owner=request.user)
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body)
-            content = data.get('content', {})
-            document.content = json.dumps(content)
-            document.save()
-            return JsonResponse({'status': 'saved'})
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid JSON'}, status=400)
-    else:
-        return render(request, 'editor.html', {'document': document})
+    return render(request, 'editor.html', {'document': document})
