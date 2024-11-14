@@ -284,6 +284,7 @@ main {
 </ul>
 <a href="{% url 'document_create' %}">Create New Document</a>
 {% endblock %}
+
 # FILE: ./templates/register.html
 {% extends 'base.html' %}
 
@@ -307,97 +308,74 @@ main {
 <h2>{{ document.title }}</h2>
 <!-- Back to Documents Link -->
 <p><a href="{% url 'document_list' %}">Back to Your Documents</a></p>
+
+<!-- Form to edit document title and collaborators -->
+<form method="post">
+    {% csrf_token %}
+    {{ form.as_p }}
+    <button type="submit">Update Document</button>
+</form>
+
 <!-- Editor container -->
 <div id="editor-container"></div>
-
-<!-- Safely include the content using json_script -->
-{{ document.content|default:'{}'|json_script:"initial-content" }}
-
-<!-- Manual Save Button -->
-<button id="save-button">Save</button>
 {% endblock %}
 
 {% block extra_script %}
 <!-- Include Quill library -->
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 
-<!-- Initialize Quill editor -->
+<!-- Initialize Quill editor and WebSocket -->
 <script>
-    // Function to retrieve a cookie by name
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                // Check if this cookie string begins with the name we want
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
-        }
-        return cookieValue;
-    }
-
-    // Retrieve CSRF token from cookies
-    const csrftoken = getCookie('csrftoken');
-
     // Initialize Quill editor
     var quill = new Quill('#editor-container', {
         theme: 'snow'
     });
 
-    // Load the content from the server
-    var initialContentElement = document.getElementById('initial-content');
-    var initialContent = JSON.parse(initialContentElement.textContent);
-    if (initialContent && initialContent.ops && initialContent.ops.length > 0) {
-        quill.setContents(initialContent);
-    }
+    // Track whether the editor is applying remote changes
+    var applyingRemoteChange = false;
 
-    // Function to save content to the server
-    function saveContent() {
-        var content = quill.getContents(); // Get the delta object directly
-        fetch("{% url 'document_edit' document.pk %}", {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': csrftoken,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({'content': content})
-        })
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Network response was not ok ' + response.statusText);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log('Success:', data);
-            // Optional: Show a save confirmation to the user
-        })
-        .catch(error => {
-            console.error('There was a problem with the fetch operation:', error);
-            // Optional: Notify the user about the error
-        });
-    }
+    // Set up WebSocket connection
+    var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
+    var documentId = "{{ document.pk }}";
+    var socketUrl = ws_scheme + '://' + window.location.host + '/ws/document/' + documentId + '/';
+    var socket = new WebSocket(socketUrl);
 
-    // Autosave content with debouncing (save after 2 seconds of inactivity)
-    let timeoutId;
-    quill.on('text-change', function() {
-        clearTimeout(timeoutId);
-        timeoutId = setTimeout(function() {
-            saveContent();
-        }, 2000); // 2000 milliseconds = 2 seconds
-    });
+    socket.onopen = function(e) {
+        console.log('WebSocket connection established.');
+    };
 
-    // Manual Save Button Event Listener
-    document.getElementById('save-button').addEventListener('click', function() {
-        saveContent();
-        alert('Document saved successfully.');
+    socket.onmessage = function(e) {
+        var data = JSON.parse(e.data);
+        if (data.type === 'init') {
+            // Set the initial content
+            quill.setContents(data.content);
+        } else if (data.type === 'delta') {
+            // Apply the delta to the Quill editor
+            applyingRemoteChange = true;
+            quill.updateContents(data.delta);
+            applyingRemoteChange = false;
+        }
+    };
+
+    socket.onerror = function(e) {
+        console.error('WebSocket error:', e);
+    };
+
+    socket.onclose = function(e) {
+        console.log('WebSocket connection closed.');
+    };
+
+    // Send changes to the server
+    quill.on('text-change', function(delta, oldDelta, source) {
+        if (source === 'user' && !applyingRemoteChange) {
+            var message = JSON.stringify(delta);
+            socket.send(message);
+        }
     });
 </script>
+
 {% endblock %}
+
 # FILE: ./templates/login.html
 {% extends 'base.html' %}
 
@@ -420,6 +398,7 @@ main {
     <button type="submit">Create</button>
 </form>
 {% endblock %}
+
 # FILE: ./manage.py
 #!/usr/bin/env python
 """Django's command-line utility for administrative tasks."""
@@ -443,6 +422,33 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# FILE: ./editor/migrations/0003_remove_document_owner_document_collaborators.py
+# Generated by Django 5.1.3 on 2024-11-14 22:05
+
+from django.conf import settings
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+    dependencies = [
+        ("editor", "0002_alter_document_content"),
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+    ]
+
+    operations = [
+        migrations.RemoveField(
+            model_name="document",
+            name="owner",
+        ),
+        migrations.AddField(
+            model_name="document",
+            name="collaborators",
+            field=models.ManyToManyField(
+                related_name="documents", to=settings.AUTH_USER_MODEL
+            ),
+        ),
+    ]
 
 # FILE: ./editor/migrations/__init__.py
 
@@ -518,7 +524,10 @@ from django.contrib.auth.models import User
 class Document(models.Model):
     title = models.CharField(max_length=255)
     content = models.TextField(blank=True, default='')  # Store the document content as JSON
-    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='documents')
+    # Remove the owner field
+    # owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='documents')
+    # Add collaborators field
+    collaborators = models.ManyToManyField(User, related_name='documents')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
         
@@ -530,11 +539,9 @@ class Document(models.Model):
 
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
-from django.contrib.auth.models import User
 from .models import Document
 import json
 from delta import Delta
-
 
 class DocumentConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -572,17 +579,16 @@ class DocumentConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         delta = data  # Assuming data is the delta
-        user = self.scope['user']
 
-        # Save the delta to the database
-        await self.save_delta(delta)
+        # Apply the delta and get the transformed delta
+        transformed_delta = await self.apply_delta(delta)
 
-        # Broadcast to other clients
+        # Broadcast the transformed delta to other clients
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'document_change',
-                'delta': delta,
+                'delta': transformed_delta,
                 'sender_channel_name': self.channel_name
             }
         )
@@ -604,14 +610,23 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         return Document.objects.get(pk=self.document_id)
 
     @sync_to_async
-    def save_delta(self, delta):
+    def apply_delta(self, delta):
         # Load the document
         document = Document.objects.get(pk=self.document_id)
         # Apply the delta to the document content
         content = json.loads(document.content) if document.content else {'ops': []}
-        new_content = Delta(content).compose(Delta(delta))
+        doc_delta = Delta(content)
+        client_delta = Delta(delta)
+
+        # Compose the new content
+        new_content = doc_delta.compose(client_delta)
+
+        # Save the new content
         document.content = json.dumps(new_content.ops)
         document.save()
+
+        # Return the delta to send to other clients
+        return delta
 
 # FILE: ./editor/__init__.py
 
@@ -632,9 +647,16 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
 class DocumentForm(forms.ModelForm):
+    collaborators = forms.ModelMultipleChoiceField(
+        queryset=User.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Share with"
+    )
+
     class Meta:
         model = Document
-        fields = ['title']
+        fields = ['title', 'collaborators']
 
 class RegisterForm(UserCreationForm):
     email = forms.EmailField(required=True)
@@ -642,6 +664,7 @@ class RegisterForm(UserCreationForm):
     class Meta:
         model = User
         fields = ['username', 'email', 'password1', 'password2']
+
 # FILE: ./editor/admin.py
 from django.contrib import admin
 
@@ -703,7 +726,8 @@ def register(request):
 
 @login_required
 def document_list(request):
-    documents = Document.objects.filter(owner=request.user)
+    # Include documents where the user is a collaborator
+    documents = Document.objects.filter(collaborators=request.user)
     return render(request, 'document_list.html', {'documents': documents})
 
 @login_required
@@ -712,8 +736,9 @@ def document_create(request):
         form = DocumentForm(request.POST)
         if form.is_valid():
             document = form.save(commit=False)
-            document.owner = request.user
             document.save()
+            form.save_m2m()  # Save the collaborators
+            document.collaborators.add(request.user)  # Add the creator as a collaborator
             return redirect('document_edit', pk=document.pk)
     else:
         form = DocumentForm()
@@ -721,5 +746,12 @@ def document_create(request):
 
 @login_required
 def document_edit(request, pk):
-    document = get_object_or_404(Document, pk=pk, owner=request.user)
-    return render(request, 'editor.html', {'document': document})
+    document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+    if request.method == 'POST':
+        form = DocumentForm(request.POST, instance=document)
+        if form.is_valid():
+            form.save()
+            return redirect('document_edit', pk=document.pk)
+    else:
+        form = DocumentForm(instance=document)
+    return render(request, 'editor.html', {'document': document, 'form': form})

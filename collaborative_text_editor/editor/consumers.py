@@ -2,11 +2,9 @@
 
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
-from django.contrib.auth.models import User
 from .models import Document
 import json
 from delta import Delta
-
 
 class DocumentConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -44,17 +42,16 @@ class DocumentConsumer(AsyncWebsocketConsumer):
     async def receive(self, text_data):
         data = json.loads(text_data)
         delta = data  # Assuming data is the delta
-        user = self.scope['user']
 
-        # Save the delta to the database
-        await self.save_delta(delta)
+        # Apply the delta and get the transformed delta
+        transformed_delta = await self.apply_delta(delta)
 
-        # Broadcast to other clients
+        # Broadcast the transformed delta to other clients
         await self.channel_layer.group_send(
             self.room_group_name,
             {
                 'type': 'document_change',
-                'delta': delta,
+                'delta': transformed_delta,
                 'sender_channel_name': self.channel_name
             }
         )
@@ -76,11 +73,20 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         return Document.objects.get(pk=self.document_id)
 
     @sync_to_async
-    def save_delta(self, delta):
+    def apply_delta(self, delta):
         # Load the document
         document = Document.objects.get(pk=self.document_id)
         # Apply the delta to the document content
         content = json.loads(document.content) if document.content else {'ops': []}
-        new_content = Delta(content).compose(Delta(delta))
+        doc_delta = Delta(content)
+        client_delta = Delta(delta)
+
+        # Compose the new content
+        new_content = doc_delta.compose(client_delta)
+
+        # Save the new content
         document.content = json.dumps(new_content.ops)
         document.save()
+
+        # Return the delta to send to other clients
+        return delta

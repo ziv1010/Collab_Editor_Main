@@ -22,7 +22,8 @@ def register(request):
 
 @login_required
 def document_list(request):
-    documents = Document.objects.filter(owner=request.user)
+    # Include documents where the user is a collaborator
+    documents = Document.objects.filter(collaborators=request.user)
     return render(request, 'document_list.html', {'documents': documents})
 
 @login_required
@@ -31,8 +32,9 @@ def document_create(request):
         form = DocumentForm(request.POST)
         if form.is_valid():
             document = form.save(commit=False)
-            document.owner = request.user
             document.save()
+            form.save_m2m()  # Save the collaborators
+            document.collaborators.add(request.user)  # Add the creator as a collaborator
             return redirect('document_edit', pk=document.pk)
     else:
         form = DocumentForm()
@@ -40,5 +42,12 @@ def document_create(request):
 
 @login_required
 def document_edit(request, pk):
-    document = get_object_or_404(Document, pk=pk, owner=request.user)
-    return render(request, 'editor.html', {'document': document})
+    document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+    if request.method == 'POST':
+        form = DocumentForm(request.POST, instance=document)
+        if form.is_valid():
+            form.save()
+            return redirect('document_edit', pk=document.pk)
+    else:
+        form = DocumentForm(instance=document)
+    return render(request, 'editor.html', {'document': document, 'form': form})

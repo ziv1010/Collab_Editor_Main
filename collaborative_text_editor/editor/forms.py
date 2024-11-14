@@ -6,9 +6,16 @@ from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.models import User
 
 class DocumentForm(forms.ModelForm):
+    collaborators = forms.ModelMultipleChoiceField(
+        queryset=User.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Share with"
+    )
+
     class Meta:
         model = Document
-        fields = ['title']
+        fields = ['title', 'collaborators']
 
 class RegisterForm(UserCreationForm):
     email = forms.EmailField(required=True)
