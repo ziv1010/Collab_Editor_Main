@@ -7,13 +7,13 @@
 
 {% block content %}
 <h2>{{ document.title }}</h2>
+<!-- Back to Documents Link -->
+<p><a href="{% url 'document_list' %}">Back to Your Documents</a></p>
 <!-- Editor container -->
 <div id="editor-container"></div>
 
 <!-- Safely include the content using json_script -->
-{% if document.content %}
-    {{ document.content|json_script:"initial-content" }}
-{% endif %}
+{{ document.content|default:'""'|json_script:"initial-content" }}
 {% endblock %}
 
 {% block extra_script %}
@@ -27,8 +27,11 @@
     });
 
     // Load the content from the server
-    var initialContent = JSON.parse(document.getElementById('initial-content').textContent);
-    quill.setContents(initialContent);
+    var initialContentElement = document.getElementById('initial-content');
+    var initialContent = JSON.parse(initialContentElement.textContent);
+    if (initialContent && initialContent.ops && initialContent.ops.length > 0) {
+        quill.setContents(initialContent);
+    }
 
     // Autosave content
     quill.on('text-change', function() {
@@ -41,6 +44,18 @@
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify({'content': content})
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok ' + response.statusText);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Success:', data);
+        })
+        .catch(error => {
+            console.error('There was a problem with the fetch operation:', error);
         });
     });
 </script>
