@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}
+<!-- Include Quill stylesheet -->
+<link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+{% endblock %}
+
+{% block content %}
+<h2>{{ document.title }}</h2>
+<!-- Editor container -->
+<div id="editor-container"></div>
+
+<!-- Safely include the content using json_script -->
+{% if document.content %}
+    {{ document.content|json_script:"initial-content" }}
+{% endif %}
+{% endblock %}
+
+{% block extra_script %}
+<!-- Include Quill library -->
+<script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+
+<!-- Initialize Quill editor -->
+<script>
+    var quill = new Quill('#editor-container', {
+        theme: 'snow'
+    });
+
+    // Load the content from the server
+    var initialContent = JSON.parse(document.getElementById('initial-content').textContent);
+    quill.setContents(initialContent);
+
+    // Autosave content
+    quill.on('text-change', function() {
+        // Send the content to the server via fetch API
+        var content = JSON.stringify(quill.getContents());
+        fetch("{% url 'document_edit' document.pk %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token }}',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({'content': content})
+        });
+    });
+</script>
+{% endblock %}
