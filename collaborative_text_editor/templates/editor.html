@@ -41,6 +41,7 @@
     var socketUrl = ws_scheme + '://' + window.location.host + '/ws/document/' + documentId + '/';
     var socket = new WebSocket(socketUrl);
 
+
     socket.onopen = function(e) {
         console.log('WebSocket connection established.');
     };
@@ -50,10 +51,10 @@
         if (data.type === 'init') {
             // Set the initial content
             quill.setContents(data.content);
-        } else if (data.type === 'delta') {
-            // Apply the delta to the Quill editor
+        } else if (data.type === 'content') {
+            // Replace the content in the Quill editor
             applyingRemoteChange = true;
-            quill.updateContents(data.delta);
+            quill.setContents(data.content);
             applyingRemoteChange = false;
         }
     };
@@ -69,7 +70,8 @@
     // Send changes to the server
     quill.on('text-change', function(delta, oldDelta, source) {
         if (source === 'user' && !applyingRemoteChange) {
-            var message = JSON.stringify(delta);
+            var content = quill.getContents(); // Get the full content as a Delta
+            var message = JSON.stringify({'content': content});
             socket.send(message);
         }
     });

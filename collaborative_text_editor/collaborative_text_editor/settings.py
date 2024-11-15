@@ -33,13 +33,13 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    'channels',          # For WebSocket support
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'channels',          # For WebSocket support
     'editor',            # Your app
 ]
 
@@ -147,3 +147,5 @@ STATICFILES_DIRS = [os.path.join(BASE_DIR, 'static')]
 # Authentication settings
 LOGIN_REDIRECT_URL = 'document_list'
 LOGOUT_REDIRECT_URL = 'login'
+
+
