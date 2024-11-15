@@ -6,6 +6,7 @@ from .models import Document
 from django.contrib.auth.models import User
 import json
 import random
+from delta import Delta  # Ensure this is the correct package
 
 class DocumentConsumer(AsyncWebsocketConsumer):
     active_users_dict = {}   # Class variable to keep track of active users
@@ -74,25 +75,25 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         data = json.loads(text_data)
         message_type = data.get('type')
 
-        if message_type == 'content':
-            content = data.get('content')
-            if content:
-                # Save the content
-                await self.save_content(content)
+        if message_type == 'delta':
+            delta_ops = data.get('delta')  # Now expecting a list of operations
+            if delta_ops:
+                # Update the document content with the delta
+                await self.update_document_content(delta_ops)
 
-                # Broadcast the content to other clients
+                # Broadcast the delta to other clients
                 await self.channel_layer.group_send(
                     self.room_group_name,
                     {
-                        'type': 'document_change',
-                        'content': content,
+                        'type': 'broadcast_delta',  # Use 'broadcast_delta' as event type
+                        'delta': delta_ops,
                         'sender_channel_name': self.channel_name
                     })
             else:
-                # Handle cases where content is missing or invalid
+                # Handle cases where delta is missing or invalid
                 await self.send(text_data=json.dumps({
                     'type': 'error',
-                    'message': 'Invalid content received.'
+                    'message': 'Invalid delta received.'
                 }))
         elif message_type == 'cursor':
             range = data.get('range')
@@ -110,16 +111,38 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                     }
                 )
 
-    # Receive content change from room group
-    async def document_change(self, event):
-        content = event['content']
+    async def update_document_content(self, delta_ops):
+        await self.apply_delta_to_document(delta_ops)
+
+
+    @sync_to_async
+    def apply_delta_to_document(self, delta_ops):
+        document = Document.objects.get(pk=self.document_id)
+        current_content = json.loads(document.content) if document.content else {'ops': []}
+
+        # Apply the delta to the current content
+        new_content = self.apply_quill_delta(current_content['ops'], delta_ops)
+
+        # Save the updated content
+        document.content = json.dumps({'ops': new_content})
+        document.save()
+
+    def apply_quill_delta(self, current_ops, delta_ops):
+        current_delta = Delta(current_ops)
+        delta_obj = Delta(delta_ops)
+        new_delta = current_delta.compose(delta_obj)
+        return new_delta.ops
+
+    # Event handler for 'broadcast_delta' messages
+    async def broadcast_delta(self, event):
+        delta_ops = event['delta']
         sender_channel_name = event['sender_channel_name']
 
-        # Do not send the content back to the sender
+        # Do not send the delta back to the sender
         if self.channel_name != sender_channel_name:
             await self.send(text_data=json.dumps({
-                'type': 'content',
-                'content': content
+                'type': 'delta',
+                'delta': delta_ops
             }))
 
     # Receive cursor position from room group
@@ -169,14 +192,6 @@ class DocumentConsumer(AsyncWebsocketConsumer):
     def check_permission(self):
         document = Document.objects.get(pk=self.document_id)
         return self.user in document.collaborators.all()
-
-    @sync_to_async
-    def save_content(self, content):
-        # Load the document
-        document = Document.objects.get(pk=self.document_id)
-        # Save the content
-        document.content = json.dumps(content)
-        document.save()
 
     @sync_to_async
     def add_active_user(self):
