@@ -35,7 +35,7 @@
 <!-- Include Quill library -->
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <!-- Include quill-cursors script -->
-<script src="https://cdn.jsdelivr.net/npm/quill-cursors@1.0.3/dist/quill-cursors.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/quill-cursors@3.0.0/dist/quill-cursors.min.js"></script>
 
 <!-- Initialize Quill editor and WebSocket -->
 <script>
@@ -53,14 +53,27 @@
 
     var cursors = quill.getModule('cursors');
 
-    // Track whether the editor is applying remote changes
-    var applyingRemoteChange = false;
+    // Debounce function to delay execution until after events stop firing
+    function debounce(func, wait) {
+        var timeout;
+        return function() {
+            var context = this, args = arguments;
+            clearTimeout(timeout);
+            timeout = setTimeout(function() {
+                func.apply(context, args);
+            }, wait);
+        };
+    }
+
+    var debouncedSendCursorPosition = debounce(sendCursorPosition, 10);
 
     // Set up WebSocket connection
     var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
     var documentId = "{{ document.pk }}";
     var socketUrl = ws_scheme + '://' + window.location.host + '/ws/document/' + documentId + '/';
     var socket = new WebSocket(socketUrl);
+
+    var myUserId = "{{ user.id }}";  // Store user ID as a string
 
     socket.onopen = function(e) {
         console.log('WebSocket connection established.');
@@ -69,24 +82,34 @@
     };
 
     socket.onmessage = function(e) {
-    var data = JSON.parse(e.data);
-    if (data.type === 'init') {
-        // Set the initial content
-        quill.setContents(data.content);
-    } else if (data.type === 'delta') {
-        // Apply the delta to the Quill editor
-        applyingRemoteChange = true;
-        quill.updateContents({ ops: data.delta });
-        applyingRemoteChange = false;
+        var data = JSON.parse(e.data);
+        if (data.type === 'init') {
+            // Set the initial content
+            quill.setContents(data.content);
+        } else if (data.type === 'delta') {
+            // Apply the delta to the Quill editor
+            quill.updateContents({ ops: data.delta });
         } else if (data.type === 'cursor') {
             // Update cursor position
-            if (data.user_id !== parseInt("{{ user.id }}")) {
-                cursors.createCursor(data.user_id, data.username, data.color);
-                cursors.moveCursor(data.user_id, data.range);
+            if (data.user_id !== myUserId) {
+                var userIdStr = data.user_id.toString();
+                // Check if cursor already exists
+                if (!cursors.cursors().hasOwnProperty(userIdStr)) {
+                    cursors.createCursor(userIdStr, data.username, data.color);
+                }
+                if (data.range) {
+                    // Ensure that data.range.index and data.range.length are numbers
+                    var range = data.range;
+                    range.index = Number(range.index);
+                    range.length = Number(range.length);
+                    cursors.moveCursor(userIdStr, range);
+                } else {
+                    cursors.removeCursor(userIdStr);
+                }
             }
         } else if (data.type === 'user_left') {
             // Remove cursor when user disconnects
-            cursors.removeCursor(data.user_id);
+            cursors.removeCursor(data.user_id.toString());
         } else if (data.type === 'active_users') {
             // Update the list of active users
             updateActiveUsersList(data.users);
@@ -104,29 +127,29 @@
     // Send changes to the server
     quill.on('text-change', function(delta, oldDelta, source) {
         if (source === 'user') {
-            var deltaOps = delta.ops;  // Extract the 'ops' array
+            var deltaOps = delta.ops;
             var message = JSON.stringify({'type': 'delta', 'delta': deltaOps});
             socket.send(message);
+
+            // Send cursor position (debounced)
+            debouncedSendCursorPosition();
         }
     });
 
-
-    // Send cursor position to the server
+    // Send cursor position to the server (debounced)
     quill.on('selection-change', function(range, oldRange, source) {
-        if (source === 'user' && range) {
-            sendCursorPosition();
+        if (source === 'user') {
+            debouncedSendCursorPosition();
         }
     });
 
     function sendCursorPosition() {
         var range = quill.getSelection();
-        if (range) {
-            var message = JSON.stringify({
-                'type': 'cursor',
-                'range': range
-            });
-            socket.send(message);
-        }
+        var message = JSON.stringify({
+            'type': 'cursor',
+            'range': range
+        });
+        socket.send(message);
     }
 
     // Function to update active users list
@@ -141,7 +164,5 @@
             });
         }
     }
-
 </script>
-
 {% endblock %}

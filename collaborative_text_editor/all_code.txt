@@ -56,7 +56,8 @@ SECRET_KEY = 'django-insecure-)20lo0tmyxgox2conr)i8s+uewbk^oaqd#6bt#m&un7%q5oc+4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
+
 
 
 # Application definition
@@ -104,6 +105,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'collaborative_text_editor.wsgi.application'
 
+# collaborative_text_editor/settings.py
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://cb87-125-22-40-140.ngrok-free.app'
+]
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
@@ -161,7 +167,10 @@ ASGI_APPLICATION = 'collaborative_text_editor.asgi.application'
 # Channel layers configuration (using In-Memory Channel Layer for development)
 CHANNEL_LAYERS = {
     'default': {
-        'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            'hosts': [('localhost', 6379)],  # Use the appropriate Redis host and port
+        },
     },
 }
 
@@ -347,7 +356,9 @@ main {
 <!-- Active Users List -->
 <div id="active-users" style="margin-top: 20px;">
     <h3>Active Users:</h3>
-    <!-- Active users will be listed here -->
+    <div id="active-users-list">
+        <!-- Active users will be listed here -->
+    </div>
 </div>
 
 <!-- Editor container -->
@@ -376,8 +387,23 @@ main {
 
     var cursors = quill.getModule('cursors');
 
-    // Track whether the editor is applying remote changes
-    var applyingRemoteChange = false;
+    // Throttle function to limit the frequency of function calls
+    function throttle(func, limit) {
+        var inThrottle;
+        return function() {
+            var args = arguments;
+            var context = this;
+            if (!inThrottle) {
+                func.apply(context, args);
+                inThrottle = true;
+                setTimeout(function() {
+                    inThrottle = false;
+                }, limit);
+            }
+        }
+    }
+
+    var throttledSendCursorPosition = throttle(sendCursorPosition, 100);
 
     // Set up WebSocket connection
     var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
@@ -392,20 +418,22 @@ main {
     };
 
     socket.onmessage = function(e) {
-    var data = JSON.parse(e.data);
-    if (data.type === 'init') {
-        // Set the initial content
-        quill.setContents(data.content);
-    } else if (data.type === 'delta') {
-        // Apply the delta to the Quill editor
-        applyingRemoteChange = true;
-        quill.updateContents({ ops: data.delta });
-        applyingRemoteChange = false;
+        var data = JSON.parse(e.data);
+        if (data.type === 'init') {
+            // Set the initial content
+            quill.setContents(data.content);
+        } else if (data.type === 'delta') {
+            // Apply the delta to the Quill editor
+            quill.updateContents({ ops: data.delta });
         } else if (data.type === 'cursor') {
             // Update cursor position
             if (data.user_id !== parseInt("{{ user.id }}")) {
                 cursors.createCursor(data.user_id, data.username, data.color);
-                cursors.moveCursor(data.user_id, data.range);
+                if (data.range) {
+                    cursors.moveCursor(data.user_id, data.range);
+                } else {
+                    cursors.removeCursor(data.user_id);
+                }
             }
         } else if (data.type === 'user_left') {
             // Remove cursor when user disconnects
@@ -430,44 +458,43 @@ main {
             var deltaOps = delta.ops;  // Extract the 'ops' array
             var message = JSON.stringify({'type': 'delta', 'delta': deltaOps});
             socket.send(message);
+
+            // Send cursor position (throttled)
+            throttledSendCursorPosition();
         }
     });
 
-
     // Send cursor position to the server
     quill.on('selection-change', function(range, oldRange, source) {
-        if (source === 'user' && range) {
+        if (source === 'user') {
             sendCursorPosition();
         }
     });
 
     function sendCursorPosition() {
         var range = quill.getSelection();
-        if (range) {
-            var message = JSON.stringify({
-                'type': 'cursor',
-                'range': range
-            });
-            socket.send(message);
-        }
+        var message = JSON.stringify({
+            'type': 'cursor',
+            'range': range
+        });
+        socket.send(message);
     }
 
     // Function to update active users list
     function updateActiveUsersList(users) {
-        var activeUsersContainer = document.getElementById('active-users');
-        if (activeUsersContainer) {
-            activeUsersContainer.innerHTML = '';
+        var activeUsersListContainer = document.getElementById('active-users-list');
+        if (activeUsersListContainer) {
+            activeUsersListContainer.innerHTML = '';
             users.forEach(function(user) {
                 var userElement = document.createElement('div');
                 userElement.textContent = user.username;
-                activeUsersContainer.appendChild(userElement);
+                activeUsersListContainer.appendChild(userElement);
             });
         }
     }
 </script>
 
 {% endblock %}
-
 # FILE: ./templates/login.html
 {% extends 'base.html' %}
 

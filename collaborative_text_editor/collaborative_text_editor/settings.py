@@ -27,7 +27,8 @@ SECRET_KEY = 'django-insecure-)20lo0tmyxgox2conr)i8s+uewbk^oaqd#6bt#m&un7%q5oc+4
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
+
 
 
 # Application definition
@@ -75,6 +76,11 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'collaborative_text_editor.wsgi.application'
 
+# collaborative_text_editor/settings.py
+
+CSRF_TRUSTED_ORIGINS = [
+    'https://cb87-125-22-40-140.ngrok-free.app'
+]
 
 # Database
 # https://docs.djangoproject.com/en/3.2/ref/settings/#databases
@@ -130,14 +136,19 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 ASGI_APPLICATION = 'collaborative_text_editor.asgi.application'
 
 # Channel layers configuration (using In-Memory Channel Layer for development)
+# collaborative_text_editor/settings.py
+
 CHANNEL_LAYERS = {
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
-            'hosts': [('localhost', 6379)],  # Use the appropriate Redis host and port
+            'hosts': [('localhost', 6379)],
+            'capacity': 10000,  # Increase capacity as needed
+            'group_expiry': 60 * 60,  # Keep groups alive for 1 hour
         },
     },
 }
+
 
 
 
