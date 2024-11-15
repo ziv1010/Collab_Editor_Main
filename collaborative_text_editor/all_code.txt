@@ -12,10 +12,11 @@ django.setup()
 from channels.auth import AuthMiddlewareStack
 from channels.routing import ProtocolTypeRouter, URLRouter
 from django.core.asgi import get_asgi_application
+from django.contrib.staticfiles.handlers import ASGIStaticFilesHandler  # Add this import
 import editor.routing
 
 application = ProtocolTypeRouter({
-    "http": get_asgi_application(),
+    "http": ASGIStaticFilesHandler(get_asgi_application()),  # Wrap with ASGIStaticFilesHandler
     "websocket": AuthMiddlewareStack(
         URLRouter(
             editor.routing.websocket_urlpatterns
@@ -282,12 +283,32 @@ main {
 <h2>Your Documents</h2>
 <ul>
     {% for document in documents %}
-        <li><a href="{% url 'document_edit' document.pk %}">{{ document.title }}</a></li>
+        <li>
+            <a href="{% url 'document_edit' document.pk %}">{{ document.title }}</a>
+            <!-- Delete Button -->
+            <form action="{% url 'document_delete' document.pk %}" method="post" style="display: inline;">
+                {% csrf_token %}
+                <button type="submit" onclick="return confirm('Are you sure you want to delete this document?');">Delete</button>
+            </form>
+        </li>
     {% empty %}
         <li>No documents yet.</li>
     {% endfor %}
 </ul>
 <a href="{% url 'document_create' %}">Create New Document</a>
+{% endblock %}
+
+# FILE: ./templates/document_confirm_delete.html
+{% extends 'base.html' %}
+
+{% block content %}
+<h2>Delete Document</h2>
+<p>Are you sure you want to delete "{{ document.title }}"?</p>
+<form method="post">
+    {% csrf_token %}
+    <button type="submit">Confirm Delete</button>
+    <a href="{% url 'document_list' %}">Cancel</a>
+</form>
 {% endblock %}
 
 # FILE: ./templates/register.html
@@ -307,6 +328,8 @@ main {
 {% block extra_head %}
 <!-- Include Quill stylesheet -->
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<!-- Include quill-cursors stylesheet -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill-cursors@1.0.3/dist/quill-cursors.css">
 {% endblock %}
 
 {% block content %}
@@ -321,6 +344,12 @@ main {
     <button type="submit">Update Document</button>
 </form>
 
+<!-- Active Users List -->
+<div id="active-users" style="margin-top: 20px;">
+    <h3>Active Users:</h3>
+    <!-- Active users will be listed here -->
+</div>
+
 <!-- Editor container -->
 <div id="editor-container"></div>
 {% endblock %}
@@ -328,13 +357,24 @@ main {
 {% block extra_script %}
 <!-- Include Quill library -->
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<!-- Include quill-cursors script -->
+<script src="https://cdn.jsdelivr.net/npm/quill-cursors@1.0.3/dist/quill-cursors.min.js"></script>
 
 <!-- Initialize Quill editor and WebSocket -->
 <script>
-    // Initialize Quill editor
+    // Include the QuillCursors module
+    var QuillCursors = window.QuillCursors;
+    Quill.register('modules/cursors', QuillCursors);
+
+    // Initialize Quill editor with the cursors module enabled
     var quill = new Quill('#editor-container', {
-        theme: 'snow'
+        theme: 'snow',
+        modules: {
+            cursors: true
+        }
     });
+
+    var cursors = quill.getModule('cursors');
 
     // Track whether the editor is applying remote changes
     var applyingRemoteChange = false;
@@ -345,9 +385,10 @@ main {
     var socketUrl = ws_scheme + '://' + window.location.host + '/ws/document/' + documentId + '/';
     var socket = new WebSocket(socketUrl);
 
-
     socket.onopen = function(e) {
         console.log('WebSocket connection established.');
+        // Send initial cursor position
+        sendCursorPosition();
     };
 
     socket.onmessage = function(e) {
@@ -360,6 +401,18 @@ main {
             applyingRemoteChange = true;
             quill.setContents(data.content);
             applyingRemoteChange = false;
+        } else if (data.type === 'cursor') {
+            // Update cursor position
+            if (data.user_id !== parseInt("{{ user.id }}")) {
+                cursors.createCursor(data.user_id, data.username, data.color);
+                cursors.moveCursor(data.user_id, data.range);
+            }
+        } else if (data.type === 'user_left') {
+            // Remove cursor when user disconnects
+            cursors.removeCursor(data.user_id);
+        } else if (data.type === 'active_users') {
+            // Update the list of active users
+            updateActiveUsersList(data.users);
         }
     };
 
@@ -375,10 +428,41 @@ main {
     quill.on('text-change', function(delta, oldDelta, source) {
         if (source === 'user' && !applyingRemoteChange) {
             var content = quill.getContents(); // Get the full content as a Delta
-            var message = JSON.stringify({'content': content});
+            var message = JSON.stringify({'type': 'content', 'content': content});
             socket.send(message);
         }
     });
+
+    // Send cursor position to the server
+    quill.on('selection-change', function(range, oldRange, source) {
+        if (source === 'user' && range) {
+            sendCursorPosition();
+        }
+    });
+
+    function sendCursorPosition() {
+        var range = quill.getSelection();
+        if (range) {
+            var message = JSON.stringify({
+                'type': 'cursor',
+                'range': range
+            });
+            socket.send(message);
+        }
+    }
+
+    // Function to update active users list
+    function updateActiveUsersList(users) {
+        var activeUsersContainer = document.getElementById('active-users');
+        if (activeUsersContainer) {
+            activeUsersContainer.innerHTML = '';
+            users.forEach(function(user) {
+                var userElement = document.createElement('div');
+                userElement.textContent = user.username;
+                activeUsersContainer.appendChild(userElement);
+            });
+        }
+    }
 </script>
 
 {% endblock %}
@@ -547,15 +631,21 @@ class Document(models.Model):
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
 from .models import Document
+from django.contrib.auth.models import User
 import json
+import random
 
 class DocumentConsumer(AsyncWebsocketConsumer):
+    active_users_dict = {}   # Class variable to keep track of active users
+
     async def connect(self):
         self.document_id = self.scope['url_route']['kwargs']['document_id']
         self.room_group_name = f'document_{self.document_id}'
+        self.user = self.scope["user"]
+        self.color = await self.get_user_color(self.user.id)  # Assign a color to the user
 
         # Authenticate user
-        if self.scope["user"].is_anonymous:
+        if self.user.is_anonymous:
             await self.close()
         else:
             # Check if the user is a collaborator
@@ -563,6 +653,9 @@ class DocumentConsumer(AsyncWebsocketConsumer):
             if not has_permission:
                 await self.close()
             else:
+                # Add user to active users
+                await self.add_active_user()
+
                 # Join room group
                 await self.channel_layer.group_add(
                     self.room_group_name,
@@ -579,38 +672,73 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                     'content': content
                 }))
 
+                # Notify others about the new active user
+                await self.broadcast_active_users()
+
     async def disconnect(self, close_code):
+        # Remove user from active users
+        await self.remove_active_user()
+
         # Leave room group
         await self.channel_layer.group_discard(
             self.room_group_name,
             self.channel_name
         )
 
+        # Notify others about the user leaving
+        await self.broadcast_active_users()
+
+        # Remove cursor from other clients
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'user_left',
+                'user_id': self.user.id
+            }
+        )
+
     # Receive message from WebSocket
     async def receive(self, text_data):
         data = json.loads(text_data)
-        content = data.get('content')  # Extract content from the received data
+        message_type = data.get('type')
 
-        if content:
-            # Save the content
-            await self.save_content(content)
+        if message_type == 'content':
+            content = data.get('content')
+            if content:
+                # Save the content
+                await self.save_content(content)
 
-            # Broadcast the content to other clients
-            await self.channel_layer.group_send(
-                self.room_group_name,
-                {
-                    'type': 'document_change',
-                    'content': content,
-                    'sender_channel_name': self.channel_name
-                })
-        else:
-            # Handle cases where content is missing or invalid
-            await self.send(text_data=json.dumps({
-                'type': 'error',
-                'message': 'Invalid content received.'
-            }))
+                # Broadcast the content to other clients
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'document_change',
+                        'content': content,
+                        'sender_channel_name': self.channel_name
+                    })
+            else:
+                # Handle cases where content is missing or invalid
+                await self.send(text_data=json.dumps({
+                    'type': 'error',
+                    'message': 'Invalid content received.'
+                }))
+        elif message_type == 'cursor':
+            range = data.get('range')
+            if range is not None:
+                # Broadcast cursor position to other clients
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'cursor_position',
+                        'user_id': self.user.id,
+                        'username': self.user.username,
+                        'range': range,
+                        'color': self.color,
+                        'sender_channel_name': self.channel_name
+                    }
+                )
 
-    # Receive message from room group
+    # Receive content change from room group
     async def document_change(self, event):
         content = event['content']
         sender_channel_name = event['sender_channel_name']
@@ -622,6 +750,45 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                 'content': content
             }))
 
+    # Receive cursor position from room group
+    async def cursor_position(self, event):
+        sender_channel_name = event['sender_channel_name']
+
+        # Do not send the cursor position back to the sender
+        if self.channel_name != sender_channel_name:
+            await self.send(text_data=json.dumps({
+                'type': 'cursor',
+                'user_id': event['user_id'],
+                'username': event['username'],
+                'range': event['range'],
+                'color': event['color']
+            }))
+
+    # Handle user leaving
+    async def user_left(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'user_left',
+            'user_id': event['user_id']
+        }))
+
+    # Broadcast active users list
+    async def broadcast_active_users(self):
+        active_users = await self.get_active_users()
+        await self.channel_layer.group_send(
+            self.room_group_name,
+            {
+                'type': 'active_users',
+                'users': active_users
+            }
+        )
+
+    async def active_users(self, event):
+        # Send active users list to client
+        await self.send(text_data=json.dumps({
+            'type': 'active_users',
+            'users': event['users']
+        }))
+
     @sync_to_async
     def get_document(self):
         return Document.objects.get(pk=self.document_id)
@@ -629,7 +796,7 @@ class DocumentConsumer(AsyncWebsocketConsumer):
     @sync_to_async
     def check_permission(self):
         document = Document.objects.get(pk=self.document_id)
-        return self.scope["user"] in document.collaborators.all()
+        return self.user in document.collaborators.all()
 
     @sync_to_async
     def save_content(self, content):
@@ -638,6 +805,41 @@ class DocumentConsumer(AsyncWebsocketConsumer):
         # Save the content
         document.content = json.dumps(content)
         document.save()
+
+    @sync_to_async
+    def add_active_user(self):
+        if self.room_group_name not in self.active_users_dict:
+            self.active_users_dict[self.room_group_name] = {}
+        self.active_users_dict[self.room_group_name][self.user.id] = {
+            'username': self.user.username,
+            'color': self.color
+        }
+
+    @sync_to_async
+    def remove_active_user(self):
+        if self.room_group_name in self.active_users_dict:
+            self.active_users_dict[self.room_group_name].pop(self.user.id, None)
+            if not self.active_users_dict[self.room_group_name]:
+                del self.active_users_dict[self.room_group_name]
+
+    @sync_to_async
+    def get_active_users(self):
+        users = []
+        if self.room_group_name in self.active_users_dict:
+            for user_id, info in self.active_users_dict[self.room_group_name].items():
+                users.append({
+                    'user_id': user_id,
+                    'username': info['username'],
+                    'color': info['color']
+                })
+        return users
+
+    @sync_to_async
+    def get_user_color(self, user_id):
+        # Assign a consistent color based on user ID
+        random.seed(user_id)
+        colors = ['#FF0000', '#00FF00', '#0000FF', '#FF00FF', '#00FFFF', '#FFFF00']
+        return random.choice(colors)
 
 # FILE: ./editor/__init__.py
 
@@ -710,6 +912,8 @@ urlpatterns = [
     path('', views.document_list, name='document_list'),
     path('document/new/', views.document_create, name='document_create'),
     path('document/<int:pk>/edit/', views.document_edit, name='document_edit'),
+    path('document/<int:pk>/delete/', views.document_delete, name='document_delete'),
+
 ]
 
 # FILE: ./editor/views.py
@@ -766,3 +970,11 @@ def document_edit(request, pk):
     else:
         form = DocumentForm(instance=document)
     return render(request, 'editor.html', {'document': document, 'form': form})
+
+@login_required
+def document_delete(request, pk):
+    document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+    if request.method == 'POST':
+        document.delete()
+        return redirect('document_list')
+    return render(request, 'document_confirm_delete.html', {'document': document})

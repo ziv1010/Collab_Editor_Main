@@ -11,4 +11,6 @@ urlpatterns = [
     path('', views.document_list, name='document_list'),
     path('document/new/', views.document_create, name='document_create'),
     path('document/<int:pk>/edit/', views.document_edit, name='document_edit'),
+    path('document/<int:pk>/delete/', views.document_delete, name='document_delete'),
+
 ]

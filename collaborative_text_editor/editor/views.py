@@ -51,3 +51,11 @@ def document_edit(request, pk):
     else:
         form = DocumentForm(instance=document)
     return render(request, 'editor.html', {'document': document, 'form': form})
+
+@login_required
+def document_delete(request, pk):
+    document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+    if request.method == 'POST':
+        document.delete()
+        return redirect('document_list')
+    return render(request, 'document_confirm_delete.html', {'document': document})

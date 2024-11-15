@@ -3,6 +3,8 @@
 {% block extra_head %}
 <!-- Include Quill stylesheet -->
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
+<!-- Include quill-cursors stylesheet -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill-cursors@1.0.3/dist/quill-cursors.css">
 {% endblock %}
 
 {% block content %}
@@ -17,6 +19,12 @@
     <button type="submit">Update Document</button>
 </form>
 
+<!-- Active Users List -->
+<div id="active-users" style="margin-top: 20px;">
+    <h3>Active Users:</h3>
+    <!-- Active users will be listed here -->
+</div>
+
 <!-- Editor container -->
 <div id="editor-container"></div>
 {% endblock %}
@@ -24,13 +32,24 @@
 {% block extra_script %}
 <!-- Include Quill library -->
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
+<!-- Include quill-cursors script -->
+<script src="https://cdn.jsdelivr.net/npm/quill-cursors@1.0.3/dist/quill-cursors.min.js"></script>
 
 <!-- Initialize Quill editor and WebSocket -->
 <script>
-    // Initialize Quill editor
+    // Include the QuillCursors module
+    var QuillCursors = window.QuillCursors;
+    Quill.register('modules/cursors', QuillCursors);
+
+    // Initialize Quill editor with the cursors module enabled
     var quill = new Quill('#editor-container', {
-        theme: 'snow'
+        theme: 'snow',
+        modules: {
+            cursors: true
+        }
     });
+
+    var cursors = quill.getModule('cursors');
 
     // Track whether the editor is applying remote changes
     var applyingRemoteChange = false;
@@ -41,9 +60,10 @@
     var socketUrl = ws_scheme + '://' + window.location.host + '/ws/document/' + documentId + '/';
     var socket = new WebSocket(socketUrl);
 
-
     socket.onopen = function(e) {
         console.log('WebSocket connection established.');
+        // Send initial cursor position
+        sendCursorPosition();
     };
 
     socket.onmessage = function(e) {
@@ -56,6 +76,18 @@
             applyingRemoteChange = true;
             quill.setContents(data.content);
             applyingRemoteChange = false;
+        } else if (data.type === 'cursor') {
+            // Update cursor position
+            if (data.user_id !== parseInt("{{ user.id }}")) {
+                cursors.createCursor(data.user_id, data.username, data.color);
+                cursors.moveCursor(data.user_id, data.range);
+            }
+        } else if (data.type === 'user_left') {
+            // Remove cursor when user disconnects
+            cursors.removeCursor(data.user_id);
+        } else if (data.type === 'active_users') {
+            // Update the list of active users
+            updateActiveUsersList(data.users);
         }
     };
 
@@ -71,10 +103,41 @@
     quill.on('text-change', function(delta, oldDelta, source) {
         if (source === 'user' && !applyingRemoteChange) {
             var content = quill.getContents(); // Get the full content as a Delta
-            var message = JSON.stringify({'content': content});
+            var message = JSON.stringify({'type': 'content', 'content': content});
             socket.send(message);
         }
     });
+
+    // Send cursor position to the server
+    quill.on('selection-change', function(range, oldRange, source) {
+        if (source === 'user' && range) {
+            sendCursorPosition();
+        }
+    });
+
+    function sendCursorPosition() {
+        var range = quill.getSelection();
+        if (range) {
+            var message = JSON.stringify({
+                'type': 'cursor',
+                'range': range
+            });
+            socket.send(message);
+        }
+    }
+
+    // Function to update active users list
+    function updateActiveUsersList(users) {
+        var activeUsersContainer = document.getElementById('active-users');
+        if (activeUsersContainer) {
+            activeUsersContainer.innerHTML = '';
+            users.forEach(function(user) {
+                var userElement = document.createElement('div');
+                userElement.textContent = user.username;
+                activeUsersContainer.appendChild(userElement);
+            });
+        }
+    }
 </script>
 
 {% endblock %}
