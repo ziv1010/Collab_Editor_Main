@@ -4,29 +4,57 @@
 <head>
     <meta charset="UTF-8">
     <title>Collaborative Text Editor</title>
+    <!-- Include Bootstrap CSS -->
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <!-- Custom Styles -->
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-    <header>
-        <h1>Collaborative Text Editor</h1>
-        {% if user.is_authenticated %}
-        <p>
-            Welcome, {{ user.username }} |
-            <form action="{% url 'logout' %}" method="post" style="display: inline;">
-                {% csrf_token %}
-                <button type="submit" style="background: none; border: none; padding: 0; margin: 0; font: inherit; color: blue; text-decoration: underline; cursor: pointer;">
-                    Logout
-                </button>
-            </form>
-        </p>
-    {% else %}
-        <p><a href="{% url 'login' %}">Login</a> | <a href="{% url 'register' %}">Register</a></p>
-    {% endif %}
-    </header>
-    <main>
+    <!-- Navigation Bar -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+        <a class="navbar-brand" href="{% url 'document_list' %}">
+            <!-- Optional: Add a logo -->
+            <!-- <img src="{% static 'images/logo.png' %}" width="30" height="30" class="d-inline-block align-top" alt=""> -->
+            CollabDocs
+        </a>
+        <div class="collapse navbar-collapse">
+            {% if user.is_authenticated %}
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item">
+                    <a class="nav-link" href="{% url 'document_create' %}">New Document</a>
+                </li>
+            </ul>
+            <span class="navbar-text">
+                Welcome, {{ user.username }} |
+                <form action="{% url 'logout' %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-link btn-sm" style="padding: 0;">Logout</button>
+                </form>
+            </span>
+            {% else %}
+            <span class="navbar-text">
+                <a href="{% url 'login' %}">Login</a> | <a href="{% url 'register' %}">Register</a>
+            </span>
+            {% endif %}
+        </div>
+    </nav>
+
+    <div class="container-fluid">
         {% block content %}{% endblock %}
-    </main>
-    {% block extra_script %}{% endblock %}
+    </div>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2024 CollabDocs</p>
+    </footer>
+
+    {% block extra_script %}
+    <!-- Include jQuery, Popper.js, and Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <!-- Note: Use the full version of jQuery (not slim) for AJAX support -->
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    {% endblock %}
 </body>
 </html>

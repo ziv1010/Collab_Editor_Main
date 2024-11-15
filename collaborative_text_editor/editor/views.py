@@ -5,9 +5,8 @@ from django.contrib.auth import login
 from .forms import RegisterForm, DocumentForm
 from .models import Document
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse
-import json
-
+from django.http import JsonResponse, HttpResponseBadRequest
+from django.views.decorators.csrf import csrf_exempt
 
 def register(request):
     if request.method == 'POST':
@@ -40,14 +39,24 @@ def document_create(request):
         form = DocumentForm()
     return render(request, 'document_create.html', {'form': form})
 
+@csrf_exempt  # Add this decorator
 @login_required
 def document_edit(request, pk):
     document = get_object_or_404(Document, pk=pk, collaborators=request.user)
     if request.method == 'POST':
-        form = DocumentForm(request.POST, instance=document)
-        if form.is_valid():
-            form.save()
-            return redirect('document_edit', pk=document.pk)
+        if request.is_ajax():
+            new_title = request.POST.get('title')
+            if new_title:
+                document.title = new_title
+                document.save()
+                return JsonResponse({'status': 'success'})
+            else:
+                return HttpResponseBadRequest('Invalid title')
+        else:
+            form = DocumentForm(request.POST, instance=document)
+            if form.is_valid():
+                form.save()
+                return redirect('document_edit', pk=document.pk)
     else:
         form = DocumentForm(instance=document)
     return render(request, 'editor.html', {'document': document, 'form': form})
