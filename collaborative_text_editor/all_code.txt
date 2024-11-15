@@ -741,8 +741,8 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                 )
 
     async def update_document_content(self, delta_ops):
-        # Apply the delta to the document content
-        await sync_to_async(self.apply_delta_to_document)(delta_ops)
+        await self.apply_delta_to_document(delta_ops)
+
 
     @sync_to_async
     def apply_delta_to_document(self, delta_ops):

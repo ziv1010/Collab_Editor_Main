@@ -22,7 +22,9 @@
 <!-- Active Users List -->
 <div id="active-users" style="margin-top: 20px;">
     <h3>Active Users:</h3>
-    <!-- Active users will be listed here -->
+    <div id="active-users-list">
+        <!-- Active users will be listed here -->
+    </div>
 </div>
 
 <!-- Editor container -->
@@ -129,16 +131,17 @@
 
     // Function to update active users list
     function updateActiveUsersList(users) {
-        var activeUsersContainer = document.getElementById('active-users');
-        if (activeUsersContainer) {
-            activeUsersContainer.innerHTML = '';
+        var activeUsersListContainer = document.getElementById('active-users-list');
+        if (activeUsersListContainer) {
+            activeUsersListContainer.innerHTML = '';
             users.forEach(function(user) {
                 var userElement = document.createElement('div');
                 userElement.textContent = user.username;
-                activeUsersContainer.appendChild(userElement);
+                activeUsersListContainer.appendChild(userElement);
             });
         }
     }
+
 </script>
 
 {% endblock %}
