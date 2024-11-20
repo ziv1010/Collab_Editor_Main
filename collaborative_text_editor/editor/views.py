@@ -42,9 +42,12 @@ def document_create(request):
 @csrf_exempt  # Add this decorator
 @login_required
 def document_edit(request, pk):
+    print(pk)
     document = get_object_or_404(Document, pk=pk, collaborators=request.user)
     if request.method == 'POST':
-        if request.is_ajax():
+        print(request.POST)
+        if request.POST.get("title"):
+            # Update the title
             new_title = request.POST.get('title')
             if new_title:
                 document.title = new_title
@@ -53,9 +56,12 @@ def document_edit(request, pk):
             else:
                 return HttpResponseBadRequest('Invalid title')
         else:
+            # Update the document
             form = DocumentForm(request.POST, instance=document)
             if form.is_valid():
-                form.save()
+                document = form.save()
+                form.save_m2m()
+                # document.collaborators = 
                 return redirect('document_edit', pk=document.pk)
     else:
         form = DocumentForm(instance=document)
