@@ -407,15 +407,10 @@ footer {
 {% extends 'base.html' %}
 
 {% block extra_head %}
-// Register the icon for 'comment'
-var icons = Quill.import('ui/icons');
-icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></path></svg>';
 <!-- Include Quill stylesheet -->
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-<!-- Include quill-cursors stylesheet -->
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill-cursors@3.0.0/dist/quill-cursors.css">
 
-<!-- Custom CSS for comments -->
+<!-- Custom CSS for comments and cursors -->
 <style>
     #comments-container {
         background-color: #f9f9f9;
@@ -428,6 +423,7 @@ icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></pa
     .comment {
         border-bottom: 1px solid #ddd;
         padding: 5px 0;
+        cursor: pointer; /* Make comments clickable */
     }
 
     .comment .content {
@@ -443,6 +439,55 @@ icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></pa
         font-size: 12px;
         color: #007bff;
         cursor: pointer;
+    }
+
+    .commented-text {
+        background-color: #ffff00; /* Yellow background */
+        cursor: pointer;
+    }
+
+    .comment.highlight {
+        background-color: #ffeeba; /* Light yellow */
+    }
+
+    /* Styles for quill-cursors */
+    .ql-cursor {
+        position: absolute;
+        pointer-events: none;
+        transform: translateY(-1px);
+        opacity: 1;
+        z-index: 1000;
+        will-change: left, top;
+    }
+
+    .ql-cursor .ql-cursor-flag {
+        position: absolute;
+        transform: translateY(-100%);
+        white-space: nowrap;
+    }
+
+    .ql-cursor .ql-cursor-name {
+        display: inline-block;
+        padding: 2px 5px;
+        font-size: 12px;
+        line-height: 1;
+        color: #fff;
+        background-color: #000;
+        border-radius: 4px;
+    }
+
+    .ql-cursor .ql-cursor-caret {
+        position: absolute;
+        width: 2px;
+        background-color: black;
+        animation: ql-blink 1s infinite;
+    }
+
+    @keyframes ql-blink {
+        0% { opacity: 1 }
+        50% { opacity: 1 }
+        50.01% { opacity: 0 }
+        100% { opacity: 0 }
     }
 </style>
 {% endblock %}
@@ -475,6 +520,7 @@ icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></pa
 
         <!-- Comments Sidebar -->
         <div class="col-md-3" id="comments-container">
+            <h5>Comments</h5>
             <!-- Comments will be dynamically inserted here -->
         </div>
     </div>
@@ -493,7 +539,20 @@ icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></pa
           </div>
           <div class="modal-body">
             {{ collaborators_form.non_field_errors }}
-            {{ collaborators_form.collaborators }}
+            {% for field in collaborators_form %}
+                <div class="form-group">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% if field.help_text %}
+                        <small class="form-text text-muted">{{ field.help_text }}</small>
+                    {% endif %}
+                    {% for error in field.errors %}
+                        <div class="invalid-feedback">
+                            {{ error }}
+                        </div>
+                    {% endfor %}
+                </div>
+            {% endfor %}
           </div>
           <div class="modal-footer">
             <button type="submit" class="btn btn-primary">Save Changes</button>
@@ -502,7 +561,7 @@ icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></pa
         </form>
       </div>
     </div>
-  </div>
+</div>
 {% endblock %}
 
 {% block extra_script %}
@@ -515,6 +574,31 @@ icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></pa
 <script>
     // Register QuillCursors module
     Quill.register('modules/cursors', window.QuillCursors);
+
+    // Register the icon for 'comment'
+    var icons = Quill.import('ui/icons');
+    icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></path></svg>';
+
+    // Define a custom 'comment' format
+    var Inline = Quill.import('blots/inline');
+
+    class CommentBlot extends Inline {
+        static create(id) {
+            let node = super.create();
+            node.setAttribute('data-comment-id', id);
+            return node;
+        }
+
+        static formats(node) {
+            return node.getAttribute('data-comment-id');
+        }
+    }
+
+    CommentBlot.blotName = 'comment';
+    CommentBlot.tagName = 'span';
+    CommentBlot.className = 'commented-text';
+
+    Quill.register(CommentBlot);
 
     // Initialize Quill editor with cursors module and toolbar enabled
     const quill = new Quill('#editor-container', {
@@ -550,8 +634,8 @@ icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></pa
                                 });
                                 socket.send(message);
 
-                                // Highlight the text
-                                quill.formatText(range.index, range.length, { 'background': '#ffff00' });
+                                // Apply the custom 'comment' format with a temporary ID
+                                quill.formatText(range.index, range.length, 'comment', 'temp-' + Date.now());
                             }
                         } else {
                             alert('Please select text to comment on.');
@@ -563,7 +647,6 @@ icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></pa
     });
 
     const cursors = quill.getModule('cursors');
-
 
     // Debounce function to delay execution until after events stop firing
     function debounce(func, wait) {
@@ -593,9 +676,8 @@ icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></pa
         sendCursorPosition();
     };
 
-
-        // Global object to store comment ranges
-        var commentRanges = {};
+    // Global object to store comment ranges
+    var commentRanges = {};
 
     // Function to display a comment
     function displayComment(data) {
@@ -613,8 +695,87 @@ icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></pa
         `;
         commentsContainer.appendChild(commentDiv);
 
-        // Store the range for later removal
+        // Store the range for later use
         commentRanges[data.comment.id] = data.comment.range;
+
+        // Update the 'comment' format with the actual comment ID
+        quill.formatText(
+            data.comment.range.index,
+            data.comment.range.length,
+            'comment',
+            data.comment.id
+        );
+
+        // Add event listeners for hovering over the comment
+        commentDiv.addEventListener('mouseenter', function() {
+            highlightText(data.comment.id);
+        });
+
+        commentDiv.addEventListener('mouseleave', function() {
+            removeTextHighlight(data.comment.id);
+        });
+
+        // Add event listener for clicking on the comment
+        commentDiv.addEventListener('click', function() {
+            navigateToEditorComment(data.comment.id);
+        });
+    }
+
+    // Function to highlight text when hovering over a comment
+    function highlightText(commentId) {
+        let range = commentRanges[commentId];
+        if (range) {
+            quill.formatText(range.index, range.length, {
+                'background': '#ffd700' // Gold color when hovering
+            });
+        }
+    }
+
+    // Function to remove the highlight from text
+    function removeTextHighlight(commentId) {
+        let range = commentRanges[commentId];
+        if (range) {
+            quill.formatText(range.index, range.length, {
+                'background': '#ffff00' // Original highlight color
+            });
+        }
+    }
+
+    // Function to navigate to the comment in the editor
+    function navigateToEditorComment(commentId) {
+        let range = commentRanges[commentId];
+        if (range) {
+            // Scroll to the comment's position
+            quill.scrollIntoView(quill.getBounds(range.index));
+            // Optionally, set selection to highlight the text
+            quill.setSelection(range.index, range.length, 'silent');
+            // Optionally, add a temporary highlight
+            quill.formatText(range.index, range.length, { 'background': '#add8e6' }); // Light blue
+            setTimeout(() => {
+                quill.formatText(range.index, range.length, { 'background': '#ffff00' });
+            }, 2000);
+        }
+    }
+
+    // Scroll to comment when commented text is clicked in the editor
+    quill.root.addEventListener('click', function(event) {
+        let element = event.target;
+        while (element != null && !element.classList.contains('commented-text')) {
+            element = element.parentElement;
+        }
+        if (element != null) {
+            let commentId = element.getAttribute('data-comment-id');
+            highlightComment(commentId);
+        }
+    });
+
+    function highlightComment(commentId) {
+        let commentDiv = document.getElementById('comment-' + commentId);
+        if (commentDiv) {
+            commentDiv.scrollIntoView({ behavior: 'smooth' });
+            commentDiv.classList.add('highlight');
+            setTimeout(() => commentDiv.classList.remove('highlight'), 2000);
+        }
     }
 
     // Function to remove a comment
@@ -625,7 +786,7 @@ icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></pa
         }
         var range = commentRanges[commentId];
         if (range) {
-            quill.formatText(range.index, range.length, { 'background': false });
+            quill.formatText(range.index, range.length, { 'comment': false });
             delete commentRanges[commentId];
         }
     }
@@ -672,9 +833,6 @@ icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></pa
         } else if (data.type === 'comment') {
             // Display the comment
             displayComment(data);
-            // Highlight the text
-            var range = data.comment.range;
-            quill.formatText(range.index, range.length, { 'background': '#ffff00' });
         } else if (data.type === 'resolve_comment') {
             // Remove the comment
             removeComment(data.comment_id);
@@ -791,11 +949,9 @@ icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></pa
                     comment: comment,
                     username: comment.username
                 });
-                // Highlight the text
-                quill.formatText(comment.range.index, comment.range.length, { 'background': '#ffff00' });
             });
         });
-    </script>
+</script>
 {% endblock %}
 # FILE: ./templates/login.html
 {% extends 'base.html' %}
