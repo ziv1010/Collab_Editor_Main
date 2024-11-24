@@ -302,10 +302,11 @@ footer {
     <meta charset="UTF-8">
     <title>Collaborative Text Editor</title>
     <!-- Include Bootstrap CSS -->
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/css/bootstrap.min.css" integrity="sha384-TX8t27EcRE3e/ihU7zmQxVncDAy5uIKz4rEkgIXeMed4M0jlfIDPvg6uqKI2xXr2" crossorigin="anonymous">
     <!-- Custom Styles -->
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-    {% block extra_head %}{% endblock %}
+
+    {% block extra_head %} {% endblock %}
 </head>
 <body>
     <!-- Navigation Bar -->
@@ -346,13 +347,11 @@ footer {
         <p>&copy; 2024 CollabDocs</p>
     </footer>
 
-    {% block extra_script %}
     <!-- Include jQuery, Popper.js, and Bootstrap JS -->
-    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
-    <!-- Note: Use the full version of jQuery (not slim) for AJAX support -->
-    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
-    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-    {% endblock %}
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js" integrity="sha384-9/reFTGAW83EW2RDu2S0VKaIzap3H66lZH81PoYlFhbGU+6BZp6G7niu735Sk7lN" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.min.js" integrity="sha384-w1Q4orYjBQndcko6MimVbzY0tgp4pWB4lZ7lr30WKz0vr/aWKhXdBNmNb5D92v7s" crossorigin="anonymous"></script>
+    {% block extra_script %} {% endblock %}
 </body>
 </html>
 
@@ -415,38 +414,36 @@ footer {
 {% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-12">
-        <!-- Document Title and Sharing Options -->
-        <div class="d-flex justify-content-between align-items-center mt-3 mb-2">
-            <div>
-                <h4 contenteditable="true" id="document-title">{{ document.title }}</h4>
-            </div>
-            <div>
-                <!-- Collaborators Modal Trigger -->
-                <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#collaboratorsModal">
-                    Share
-                </button>
-            </div>
-        </div>
+<div class="container my-5">
+    <!-- Document Title and Sharing Options -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h4 contenteditable="true" id="document-title" class="mb-0">{{ document.title }}</h4>
+        <!-- Share Button -->
+        <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#collaboratorsModal">
+            Share
+        </button>
     </div>
-    <div class="col-12">
-        <!-- Editor container -->
-        <div id="editor-container"></div>
+
+    <!-- Editor Container -->
+    <div id="editor-container" style="height: 500px;"></div>
+
+    <!-- Active Users List -->
+    <div id="active-users" class="mt-4">
+        <h6>Active Users:</h6>
+        <div id="active-users-list" class="d-flex flex-wrap">
+            <!-- Active users will be listed here -->
+        </div>
     </div>
 </div>
 
 <!-- Collaborators Modal -->
-<div class="modal fade" id="collaboratorsModal" tabindex="-1" role="dialog" aria-labelledby="collaboratorsModalLabel" aria-hidden="true">
-  <div class="modal-dialog" role="document">
+<div class="modal fade" id="collaboratorsModal" tabindex="-1" aria-labelledby="collaboratorsModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
     <div class="modal-content">
       <form method="post" id="collaborators-form">
         {% csrf_token %}
         <div class="modal-header">
           <h5 class="modal-title" id="collaboratorsModalLabel">Share Document</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
         </div>
         <div class="modal-body">
           {{ form.non_field_errors }}
@@ -454,19 +451,11 @@ footer {
         </div>
         <div class="modal-footer">
           <button type="submit" class="btn btn-primary">Save Changes</button>
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
         </div>
       </form>
     </div>
   </div>
-</div>
-
-<!-- Active Users List -->
-<div id="active-users" class="mt-3">
-    <h5>Active Users:</h5>
-    <div id="active-users-list" class="d-flex">
-        <!-- Active users will be listed here -->
-    </div>
 </div>
 {% endblock %}
 
@@ -478,12 +467,11 @@ footer {
 
 <!-- Initialize Quill editor and WebSocket -->
 <script>
-    // Include the QuillCursors module
-    var QuillCursors = window.QuillCursors;
-    Quill.register('modules/cursors', QuillCursors);
+    // Register QuillCursors module
+    Quill.register('modules/cursors', window.QuillCursors);
 
-    // Initialize Quill editor with the cursors module and toolbar enabled
-    var quill = new Quill('#editor-container', {
+    // Initialize Quill editor with cursors module and toolbar enabled
+    const quill = new Quill('#editor-container', {
         theme: 'snow',
         modules: {
             cursors: true,
@@ -501,13 +489,13 @@ footer {
         }
     });
 
-    var cursors = quill.getModule('cursors');
+    const cursors = quill.getModule('cursors');
 
     // Debounce function to delay execution until after events stop firing
     function debounce(func, wait) {
-        var timeout;
+        let timeout;
         return function() {
-            var context = this, args = arguments;
+            const context = this, args = arguments;
             clearTimeout(timeout);
             timeout = setTimeout(function() {
                 func.apply(context, args);
@@ -515,30 +503,30 @@ footer {
         };
     }
 
-    var debouncedSendCursorPosition = debounce(sendCursorPosition, 100);
+    const debouncedSendCursorPosition = debounce(sendCursorPosition, 100);
 
     // Set up WebSocket connection
-    var ws_scheme = window.location.protocol == "https:" ? "wss" : "ws";
-    var documentId = "{{ document.pk }}";
-    var socketUrl = ws_scheme + '://' + window.location.host + '/ws/document/' + documentId + '/';
-    var socket = new WebSocket(socketUrl);
+    const wsScheme = window.location.protocol === "https:" ? "wss" : "ws";
+    const documentId = "{{ document.pk }}";
+    const socketUrl = `${wsScheme}://${window.location.host}/ws/document/${documentId}/`;
+    const socket = new WebSocket(socketUrl);
 
-    var myUserId = "{{ user.id }}";  // Store user ID as a string
+    const myUserId = "{{ user.id }}";  // Store user ID as a string
 
-    socket.onopen = function(e) {
+    socket.onopen = function() {
         console.log('WebSocket connection established.');
         // Send initial cursor position
         sendCursorPosition();
     };
 
     socket.onmessage = function(e) {
-        var data = JSON.parse(e.data);
+        const data = JSON.parse(e.data);
         if (data.type === 'init') {
             // Set the initial content
             quill.setContents(data.content);
         } else if (data.type === 'delta') {
             // Apply the delta to the Quill editor
-            var delta = { ops: data.delta };
+            const delta = { ops: data.delta };
             quill.updateContents(delta);
 
             // Transform the cursors based on the delta
@@ -546,17 +534,16 @@ footer {
         } else if (data.type === 'cursor') {
             // Update cursor position
             if (data.user_id !== myUserId) {
-                var userIdStr = data.user_id.toString();
+                const userIdStr = data.user_id.toString();
                 // Check if cursor already exists
-                if (!cursors.cursors().hasOwnProperty(userIdStr)) {
+                if (!cursors.cursors()[userIdStr]) {
                     cursors.createCursor(userIdStr, data.username, data.color);
                 }
                 if (data.range) {
-                    // Ensure that data.range.index and data.range.length are numbers
-                    var range = data.range;
-                    range.index = Number(range.index);
-                    range.length = Number(range.length);
-                    cursors.moveCursor(userIdStr, range);
+                    cursors.moveCursor(userIdStr, {
+                        index: Number(data.range.index),
+                        length: Number(data.range.length)
+                    });
                 } else {
                     cursors.removeCursor(userIdStr);
                 }
@@ -574,15 +561,15 @@ footer {
         console.error('WebSocket error:', e);
     };
 
-    socket.onclose = function(e) {
+    socket.onclose = function() {
         console.log('WebSocket connection closed.');
     };
 
     // Send changes to the server
     quill.on('text-change', function(delta, oldDelta, source) {
         if (source === 'user') {
-            var deltaOps = delta.ops;
-            var message = JSON.stringify({'type': 'delta', 'delta': deltaOps});
+            const deltaOps = delta.ops;
+            const message = JSON.stringify({'type': 'delta', 'delta': deltaOps});
             socket.send(message);
 
             // Send cursor position (debounced)
@@ -598,8 +585,8 @@ footer {
     });
 
     function sendCursorPosition() {
-        var range = quill.getSelection();
-        var message = JSON.stringify({
+        const range = quill.getSelection();
+        const message = JSON.stringify({
             'type': 'cursor',
             'range': range
         });
@@ -608,13 +595,14 @@ footer {
 
     // Function to update active users list
     function updateActiveUsersList(users) {
-        var activeUsersListContainer = document.getElementById('active-users-list');
+        const activeUsersListContainer = document.getElementById('active-users-list');
         if (activeUsersListContainer) {
             activeUsersListContainer.innerHTML = '';
             users.forEach(function(user) {
-                var userElement = document.createElement('div');
-                userElement.className = 'mr-3 text-center';
-                var avatar = document.createElement('div');
+                const userElement = document.createElement('div');
+                userElement.className = 'me-3 text-center mb-3';
+
+                const avatar = document.createElement('div');
                 avatar.style.width = '40px';
                 avatar.style.height = '40px';
                 avatar.style.borderRadius = '50%';
@@ -625,10 +613,12 @@ footer {
                 avatar.style.justifyContent = 'center';
                 avatar.style.fontWeight = 'bold';
                 avatar.textContent = user.username.charAt(0).toUpperCase();
-                userElement.appendChild(avatar);
-                var username = document.createElement('div');
+
+                const username = document.createElement('div');
                 username.style.fontSize = '12px';
                 username.textContent = user.username;
+
+                userElement.appendChild(avatar);
                 userElement.appendChild(username);
                 activeUsersListContainer.appendChild(userElement);
             });
@@ -636,30 +626,33 @@ footer {
     }
 
     // Update document title
-    var titleElement = document.getElementById('document-title');
+    const titleElement = document.getElementById('document-title');
     titleElement.addEventListener('blur', function() {
-        var newTitle = titleElement.textContent.trim();
+        const newTitle = titleElement.textContent.trim();
         if (newTitle !== "{{ document.title }}") {
-            // Send an AJAX request to update the title
-            $.ajax({
-                url: "{% url 'document_edit' document.pk %}",
+            // Send a POST request to update the title
+            fetch("{% url 'document_edit' document.pk %}", {
                 method: 'POST',
-                data: {
-                    'title': newTitle,
-                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
                 },
-                success: function(response) {
+                body: JSON.stringify({ 'title': newTitle })
+            })
+            .then(response => {
+                if (response.ok) {
                     console.log('Title updated successfully.');
-                },
-                error: function(xhr, status, error) {
-                    console.error('Error updating title:', error);
+                } else {
+                    console.error('Error updating title:', response.statusText);
                 }
+            })
+            .catch(error => {
+                console.error('Error updating title:', error);
             });
         }
     });
 </script>
 {% endblock %}
-
 # FILE: ./templates/login.html
 {% extends 'base.html' %}
 
@@ -1171,9 +1164,12 @@ def document_create(request):
 @csrf_exempt  # Add this decorator
 @login_required
 def document_edit(request, pk):
+    print(pk)
     document = get_object_or_404(Document, pk=pk, collaborators=request.user)
     if request.method == 'POST':
-        if request.is_ajax():
+        print(request.POST)
+        if request.POST.get("title"):
+            # Update the title
             new_title = request.POST.get('title')
             if new_title:
                 document.title = new_title
@@ -1182,9 +1178,12 @@ def document_edit(request, pk):
             else:
                 return HttpResponseBadRequest('Invalid title')
         else:
+            # Update the document
             form = DocumentForm(request.POST, instance=document)
             if form.is_valid():
-                form.save()
+                document = form.save()
+                form.save_m2m()
+                # document.collaborators = 
                 return redirect('document_edit', pk=document.pk)
     else:
         form = DocumentForm(instance=document)

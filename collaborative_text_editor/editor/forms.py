@@ -23,3 +23,15 @@ class RegisterForm(UserCreationForm):
     class Meta:
         model = User
         fields = ['username', 'email', 'password1', 'password2']
+
+class CollaboratorsForm(forms.ModelForm):
+    collaborators = forms.ModelMultipleChoiceField(
+        queryset=User.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Share with"
+    )
+
+    class Meta:
+        model = Document
+        fields = ['collaborators']

@@ -32,25 +32,26 @@
 
 <!-- Collaborators Modal -->
 <div class="modal fade" id="collaboratorsModal" tabindex="-1" aria-labelledby="collaboratorsModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <form method="post" id="collaborators-form">
-        {% csrf_token %}
-        <div class="modal-header">
-          <h5 class="modal-title" id="collaboratorsModalLabel">Share Document</h5>
-        </div>
-        <div class="modal-body">
-          {{ form.non_field_errors }}
-          {{ form.collaborators }}
-        </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-primary">Save Changes</button>
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-        </div>
-      </form>
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" id="collaborators-form">
+          {% csrf_token %}
+          <input type="hidden" name="form_type" value="collaborators_form">
+          <div class="modal-header">
+            <h5 class="modal-title" id="collaboratorsModalLabel">Share Document</h5>
+          </div>
+          <div class="modal-body">
+            {{ collaborators_form.non_field_errors }}
+            {{ collaborators_form.collaborators }}
+          </div>
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Close</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
-</div>
 {% endblock %}
 
 {% block extra_script %}

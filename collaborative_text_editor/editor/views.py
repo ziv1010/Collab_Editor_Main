@@ -2,11 +2,12 @@
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
-from .forms import RegisterForm, DocumentForm
+from .forms import RegisterForm, DocumentForm, CollaboratorsForm 
 from .models import Document
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
+import json
 
 def register(request):
     if request.method == 'POST':
@@ -42,30 +43,31 @@ def document_create(request):
 @csrf_exempt  # Add this decorator
 @login_required
 def document_edit(request, pk):
-    print(pk)
     document = get_object_or_404(Document, pk=pk, collaborators=request.user)
     if request.method == 'POST':
-        print(request.POST)
-        if request.POST.get("title"):
-            # Update the title
-            new_title = request.POST.get('title')
+        if request.content_type == 'application/json':
+            # Handle AJAX request for title update
+            data = json.loads(request.body)
+            new_title = data.get('title')
             if new_title:
                 document.title = new_title
                 document.save()
                 return JsonResponse({'status': 'success'})
             else:
                 return HttpResponseBadRequest('Invalid title')
-        else:
-            # Update the document
-            form = DocumentForm(request.POST, instance=document)
-            if form.is_valid():
-                document = form.save()
-                form.save_m2m()
-                # document.collaborators = 
+        elif 'form_type' in request.POST and request.POST.get('form_type') == 'collaborators_form':
+            # Handle collaborators form submission
+            collaborators_form = CollaboratorsForm(request.POST, instance=document)
+            if collaborators_form.is_valid():
+                collaborators_form.save()
                 return redirect('document_edit', pk=document.pk)
+            else:
+                print(collaborators_form.errors)
+        else:
+            return HttpResponseBadRequest('Invalid form submission')
     else:
-        form = DocumentForm(instance=document)
-    return render(request, 'editor.html', {'document': document, 'form': form})
+        collaborators_form = CollaboratorsForm(instance=document)
+    return render(request, 'editor.html', {'document': document, 'collaborators_form': collaborators_form})
 
 @login_required
 def document_delete(request, pk):
