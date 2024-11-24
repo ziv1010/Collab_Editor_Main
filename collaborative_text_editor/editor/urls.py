@@ -12,5 +12,7 @@ urlpatterns = [
     path('document/new/', views.document_create, name='document_create'),
     path('document/<int:pk>/edit/', views.document_edit, name='document_edit'),
     path('document/<int:pk>/delete/', views.document_delete, name='document_delete'),
+    path('document/<int:pk>/get_comments/', views.get_comments, name='get_comments'),
+
 
 ]

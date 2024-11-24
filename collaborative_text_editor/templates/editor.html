@@ -5,30 +5,81 @@
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <!-- Include quill-cursors stylesheet -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill-cursors@3.0.0/dist/quill-cursors.css">
+
+<!-- Custom CSS for comments -->
+<style>
+    #comments-container {
+        background-color: #f9f9f9;
+        border-left: 1px solid #ccc;
+        padding: 10px;
+        overflow-y: auto;
+        height: calc(100vh - 100px);
+    }
+
+    .comment {
+        border-bottom: 1px solid #ddd;
+        padding: 5px 0;
+    }
+
+    .comment .content {
+        margin-bottom: 5px;
+    }
+
+    .comment .meta {
+        font-size: 12px;
+        color: #666;
+    }
+
+    .comment .resolve-btn {
+        font-size: 12px;
+        color: #007bff;
+        cursor: pointer;
+    }
+
+    .commented-text {
+        background-color: #ffff00; /* Yellow background */
+        cursor: pointer;
+    }
+
+    .comment.highlight {
+        background-color: #ffeeba; /* Light yellow */
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="container my-5">
-    <!-- Document Title and Sharing Options -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 contenteditable="true" id="document-title" class="mb-0">{{ document.title }}</h4>
-        <!-- Share Button -->
-        <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#collaboratorsModal">
-            Share
-        </button>
-    </div>
+<div class="container-fluid my-5">
+    <div class="row">
+        <!-- Editor Column -->
+        <div class="col-md-9">
+            <!-- Document Title and Sharing Options -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 contenteditable="true" id="document-title" class="mb-0">{{ document.title }}</h4>
+                <!-- Share Button -->
+                <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#collaboratorsModal">
+                    Share
+                </button>
+            </div>
 
-    <!-- Editor Container -->
-    <div id="editor-container" style="height: 500px;"></div>
+            <!-- Editor Container -->
+            <div id="editor-container" style="height: 500px;"></div>
 
-    <!-- Active Users List -->
-    <div id="active-users" class="mt-4">
-        <h6>Active Users:</h6>
-        <div id="active-users-list" class="d-flex flex-wrap">
-            <!-- Active users will be listed here -->
+            <!-- Active Users List -->
+            <div id="active-users" class="mt-4">
+                <h6>Active Users:</h6>
+                <div id="active-users-list" class="d-flex flex-wrap">
+                    <!-- Active users will be listed here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Comments Sidebar -->
+        <div class="col-md-3" id="comments-container">
+            <!-- Comments will be dynamically inserted here -->
         </div>
     </div>
 </div>
+
 
 <!-- Collaborators Modal -->
 <div class="modal fade" id="collaboratorsModal" tabindex="-1" aria-labelledby="collaboratorsModalLabel" aria-hidden="true">
@@ -51,7 +102,7 @@
         </form>
       </div>
     </div>
-  </div>
+</div>
 {% endblock %}
 
 {% block extra_script %}
@@ -65,22 +116,74 @@
     // Register QuillCursors module
     Quill.register('modules/cursors', window.QuillCursors);
 
+    // Register the icon for 'comment'
+    var icons = Quill.import('ui/icons');
+    icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></path></svg>';
+
+    // Define a custom 'comment' format
+    var Inline = Quill.import('blots/inline');
+
+    class CommentBlot extends Inline {
+        static create(id) {
+            let node = super.create();
+            node.setAttribute('data-comment-id', id);
+            return node;
+        }
+
+        static formats(node) {
+            return node.getAttribute('data-comment-id');
+        }
+    }
+
+    CommentBlot.blotName = 'comment';
+    CommentBlot.tagName = 'span';
+    CommentBlot.className = 'commented-text';
+
+    Quill.register(CommentBlot);
+
     // Initialize Quill editor with cursors module and toolbar enabled
     const quill = new Quill('#editor-container', {
         theme: 'snow',
         modules: {
             cursors: true,
-            toolbar: [
-                [{ 'font': [] }, { 'size': [] }],
-                ['bold', 'italic', 'underline', 'strike'],
-                [{ 'color': [] }, { 'background': [] }],
-                [{ 'script': 'super' }, { 'script': 'sub' }],
-                [{ 'header': '1' }, { 'header': '2' }, 'blockquote', 'code-block'],
-                [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
-                [{ 'direction': 'rtl' }, { 'align': [] }],
-                ['link', 'image', 'video', 'formula'],
-                ['clean']
-            ]
+            toolbar: {
+                container: [
+                    [{ 'font': [] }, { 'size': [] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ 'color': [] }, { 'background': [] }],
+                    [{ 'script': 'super' }, { 'script': 'sub' }],
+                    [{ 'header': '1' }, { 'header': '2' }, 'blockquote', 'code-block'],
+                    [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
+                    [{ 'direction': 'rtl' }, { 'align': [] }],
+                    ['link', 'image', 'video', 'formula'],
+                    ['clean'],
+                    ['comment']  // Add the 'comment' button
+                ],
+                handlers: {
+                    'comment': function() {
+                        var range = quill.getSelection();
+                        if (range && range.length > 0) {
+                            var commentContent = prompt('Enter your comment:');
+                            if (commentContent) {
+                                // Send the comment to the server
+                                var message = JSON.stringify({
+                                    'type': 'comment',
+                                    'comment': {
+                                        'range': range,
+                                        'content': commentContent
+                                    }
+                                });
+                                socket.send(message);
+
+                                // Apply the custom 'comment' format with a temporary ID
+                                quill.formatText(range.index, range.length, 'comment', 'temp-' + Date.now());
+                            }
+                        } else {
+                            alert('Please select text to comment on.');
+                        }
+                    }
+                }
+            }
         }
     });
 
@@ -114,6 +217,110 @@
         sendCursorPosition();
     };
 
+    // Global object to store comment ranges
+    var commentRanges = {};
+
+    // Function to display a comment
+    function displayComment(data) {
+        var commentsContainer = document.getElementById('comments-container');
+        if (!commentsContainer) {
+            return;
+        }
+        var commentDiv = document.createElement('div');
+        commentDiv.classList.add('comment');
+        commentDiv.id = 'comment-' + data.comment.id;
+        commentDiv.innerHTML = `
+            <div class="content">${data.comment.content}</div>
+            <div class="meta">By ${data.username}</div>
+            <div class="resolve-btn" onclick="resolveComment(${data.comment.id})">Resolve</div>
+        `;
+        commentsContainer.appendChild(commentDiv);
+
+        // Store the range for later use
+        commentRanges[data.comment.id] = data.comment.range;
+
+        // Update the 'comment' format with the actual comment ID
+        quill.formatText(
+            data.comment.range.index,
+            data.comment.range.length,
+            'comment',
+            data.comment.id
+        );
+
+        // Add event listeners for hovering over the comment
+        commentDiv.addEventListener('mouseenter', function() {
+            highlightText(data.comment.id);
+        });
+
+        commentDiv.addEventListener('mouseleave', function() {
+            removeTextHighlight(data.comment.id);
+        });
+    }
+
+    // Function to highlight text when hovering over a comment
+    function highlightText(commentId) {
+        let range = commentRanges[commentId];
+        if (range) {
+            quill.formatText(range.index, range.length, {
+                'background': '#ffd700' // Gold color when hovering
+            });
+        }
+    }
+
+    // Function to remove the highlight from text
+    function removeTextHighlight(commentId) {
+        let range = commentRanges[commentId];
+        if (range) {
+            quill.formatText(range.index, range.length, {
+                'background': '#ffff00' // Original highlight color
+            });
+        }
+    }
+
+    // Scroll to comment when commented text is clicked
+    quill.root.addEventListener('click', function(event) {
+        let element = event.target;
+        while (element != null && !element.classList.contains('commented-text')) {
+            element = element.parentElement;
+        }
+        if (element != null) {
+            let commentId = element.getAttribute('data-comment-id');
+            highlightComment(commentId);
+        }
+    });
+
+    function highlightComment(commentId) {
+        let commentDiv = document.getElementById('comment-' + commentId);
+        if (commentDiv) {
+            commentDiv.scrollIntoView({ behavior: 'smooth' });
+            commentDiv.classList.add('highlight');
+            setTimeout(() => commentDiv.classList.remove('highlight'), 2000);
+        }
+    }
+
+    // Function to remove a comment
+    function removeComment(commentId) {
+        var commentDiv = document.getElementById('comment-' + commentId);
+        if (commentDiv) {
+            commentDiv.remove();
+        }
+        var range = commentRanges[commentId];
+        if (range) {
+            quill.formatText(range.index, range.length, { 'comment': false });
+            delete commentRanges[commentId];
+        }
+    }
+
+    // Function to resolve a comment
+    function resolveComment(commentId) {
+        // Send a message to the server to resolve the comment
+        var message = JSON.stringify({
+            'type': 'resolve_comment',
+            'comment_id': commentId
+        });
+        socket.send(message);
+    }
+
     socket.onmessage = function(e) {
         const data = JSON.parse(e.data);
         if (data.type === 'init') {
@@ -143,6 +350,12 @@
                     cursors.removeCursor(userIdStr);
                 }
             }
+        } else if (data.type === 'comment') {
+            // Display the comment
+            displayComment(data);
+        } else if (data.type === 'resolve_comment') {
+            // Remove the comment
+            removeComment(data.comment_id);
         } else if (data.type === 'user_left') {
             // Remove cursor when user disconnects
             cursors.removeCursor(data.user_id.toString());
@@ -246,5 +459,17 @@
             });
         }
     });
+
+    // Load existing comments when initializing the editor
+    fetch("{% url 'get_comments' document.pk %}")
+        .then(response => response.json())
+        .then(data => {
+            data.comments.forEach(comment => {
+                displayComment({
+                    comment: comment,
+                    username: comment.username
+                });
+            });
+        });
 </script>
 {% endblock %}

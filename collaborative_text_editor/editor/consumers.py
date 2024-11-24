@@ -2,7 +2,7 @@
 
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
-from .models import Document
+from .models import Document, Comment  # Add Comment here
 from django.contrib.auth.models import User
 import json
 import random
@@ -110,6 +110,75 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                         'sender_channel_name': self.channel_name
                     }
                 )
+        elif message_type == 'comment':
+            # Handle new comment
+            comment_data = data.get('comment')
+            if comment_data:
+                # Create comment and get updated data with ID
+                comment_data = await self.create_comment(comment_data)
+                # Broadcast the comment to other clients
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'broadcast_comment',
+                        'comment': comment_data,
+                        'user_id': self.user.id,
+                        'username': self.user.username
+                    }
+                )
+        elif message_type == 'resolve_comment':
+            # Handle comment resolution
+            comment_id = data.get('comment_id')
+            if comment_id:
+                await self.resolve_comment(comment_id)
+                # Broadcast the resolution to other clients
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'broadcast_resolve_comment',
+                        'comment_id': comment_id
+                    }
+                )
+        # New method to create a comment
+    @sync_to_async
+    def create_comment(self, comment_data):
+        document = Document.objects.get(pk=self.document_id)
+        comment = Comment.objects.create(
+            document=document,
+            user=self.user,
+            range=comment_data['range'],
+            content=comment_data['content']
+        )
+        # Add comment ID to comment_data
+        comment_data['id'] = comment.id
+        return comment_data
+
+    # New method to resolve a comment
+    @sync_to_async
+    def resolve_comment(self, comment_id):
+        try:
+            comment = Comment.objects.get(pk=comment_id)
+            comment.resolved = True
+            comment.save()
+        except Comment.DoesNotExist:
+            pass
+
+    # Event handler to broadcast a new comment
+    async def broadcast_comment(self, event):
+        comment = event['comment']
+        await self.send(text_data=json.dumps({
+            'type': 'comment',
+            'comment': comment,
+            'user_id': event['user_id'],
+            'username': event['username']
+        }))
+
+    # Event handler to broadcast comment resolution
+    async def broadcast_resolve_comment(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'resolve_comment',
+            'comment_id': event['comment_id']
+        }))
 
     async def update_document_content(self, delta_ops):
         await self.apply_delta_to_document(delta_ops)

@@ -407,56 +407,102 @@ footer {
 {% extends 'base.html' %}
 
 {% block extra_head %}
+// Register the icon for 'comment'
+var icons = Quill.import('ui/icons');
+icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></path></svg>';
 <!-- Include Quill stylesheet -->
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
 <!-- Include quill-cursors stylesheet -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill-cursors@3.0.0/dist/quill-cursors.css">
+
+<!-- Custom CSS for comments -->
+<style>
+    #comments-container {
+        background-color: #f9f9f9;
+        border-left: 1px solid #ccc;
+        padding: 10px;
+        overflow-y: auto;
+        height: calc(100vh - 100px);
+    }
+
+    .comment {
+        border-bottom: 1px solid #ddd;
+        padding: 5px 0;
+    }
+
+    .comment .content {
+        margin-bottom: 5px;
+    }
+
+    .comment .meta {
+        font-size: 12px;
+        color: #666;
+    }
+
+    .comment .resolve-btn {
+        font-size: 12px;
+        color: #007bff;
+        cursor: pointer;
+    }
+</style>
 {% endblock %}
 
 {% block content %}
-<div class="container my-5">
-    <!-- Document Title and Sharing Options -->
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h4 contenteditable="true" id="document-title" class="mb-0">{{ document.title }}</h4>
-        <!-- Share Button -->
-        <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#collaboratorsModal">
-            Share
-        </button>
-    </div>
+<div class="container-fluid my-5">
+    <div class="row">
+        <!-- Editor Column -->
+        <div class="col-md-9">
+            <!-- Document Title and Sharing Options -->
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h4 contenteditable="true" id="document-title" class="mb-0">{{ document.title }}</h4>
+                <!-- Share Button -->
+                <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#collaboratorsModal">
+                    Share
+                </button>
+            </div>
 
-    <!-- Editor Container -->
-    <div id="editor-container" style="height: 500px;"></div>
+            <!-- Editor Container -->
+            <div id="editor-container" style="height: 500px;"></div>
 
-    <!-- Active Users List -->
-    <div id="active-users" class="mt-4">
-        <h6>Active Users:</h6>
-        <div id="active-users-list" class="d-flex flex-wrap">
-            <!-- Active users will be listed here -->
+            <!-- Active Users List -->
+            <div id="active-users" class="mt-4">
+                <h6>Active Users:</h6>
+                <div id="active-users-list" class="d-flex flex-wrap">
+                    <!-- Active users will be listed here -->
+                </div>
+            </div>
+        </div>
+
+        <!-- Comments Sidebar -->
+        <div class="col-md-3" id="comments-container">
+            <!-- Comments will be dynamically inserted here -->
         </div>
     </div>
 </div>
+
 
 <!-- Collaborators Modal -->
 <div class="modal fade" id="collaboratorsModal" tabindex="-1" aria-labelledby="collaboratorsModalLabel" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content">
-      <form method="post" id="collaborators-form">
-        {% csrf_token %}
-        <div class="modal-header">
-          <h5 class="modal-title" id="collaboratorsModalLabel">Share Document</h5>
-        </div>
-        <div class="modal-body">
-          {{ form.non_field_errors }}
-          {{ form.collaborators }}
-        </div>
-        <div class="modal-footer">
-          <button type="submit" class="btn btn-primary">Save Changes</button>
-          <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
-        </div>
-      </form>
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <form method="post" id="collaborators-form">
+          {% csrf_token %}
+          <input type="hidden" name="form_type" value="collaborators_form">
+          <div class="modal-header">
+            <h5 class="modal-title" id="collaboratorsModalLabel">Share Document</h5>
+          </div>
+          <div class="modal-body">
+            {{ collaborators_form.non_field_errors }}
+            {{ collaborators_form.collaborators }}
+          </div>
+          <div class="modal-footer">
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+            <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Close</button>
+          </div>
+        </form>
+      </div>
     </div>
   </div>
-</div>
 {% endblock %}
 
 {% block extra_script %}
@@ -475,21 +521,49 @@ footer {
         theme: 'snow',
         modules: {
             cursors: true,
-            toolbar: [
-                [{ 'font': [] }, { 'size': [] }],
-                ['bold', 'italic', 'underline', 'strike'],
-                [{ 'color': [] }, { 'background': [] }],
-                [{ 'script': 'super' }, { 'script': 'sub' }],
-                [{ 'header': '1' }, { 'header': '2' }, 'blockquote', 'code-block'],
-                [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
-                [{ 'direction': 'rtl' }, { 'align': [] }],
-                ['link', 'image', 'video', 'formula'],
-                ['clean']
-            ]
+            toolbar: {
+                container: [
+                    [{ 'font': [] }, { 'size': [] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ 'color': [] }, { 'background': [] }],
+                    [{ 'script': 'super' }, { 'script': 'sub' }],
+                    [{ 'header': '1' }, { 'header': '2' }, 'blockquote', 'code-block'],
+                    [{ 'list': 'ordered' }, { 'list': 'bullet' }, { 'indent': '-1' }, { 'indent': '+1' }],
+                    [{ 'direction': 'rtl' }, { 'align': [] }],
+                    ['link', 'image', 'video', 'formula'],
+                    ['clean'],
+                    ['comment']  // Add the 'comment' button
+                ],
+                handlers: {
+                    'comment': function() {
+                        var range = quill.getSelection();
+                        if (range && range.length > 0) {
+                            var commentContent = prompt('Enter your comment:');
+                            if (commentContent) {
+                                // Send the comment to the server
+                                var message = JSON.stringify({
+                                    'type': 'comment',
+                                    'comment': {
+                                        'range': range,
+                                        'content': commentContent
+                                    }
+                                });
+                                socket.send(message);
+
+                                // Highlight the text
+                                quill.formatText(range.index, range.length, { 'background': '#ffff00' });
+                            }
+                        } else {
+                            alert('Please select text to comment on.');
+                        }
+                    }
+                }
+            }
         }
     });
 
     const cursors = quill.getModule('cursors');
+
 
     // Debounce function to delay execution until after events stop firing
     function debounce(func, wait) {
@@ -518,6 +592,53 @@ footer {
         // Send initial cursor position
         sendCursorPosition();
     };
+
+
+        // Global object to store comment ranges
+        var commentRanges = {};
+
+    // Function to display a comment
+    function displayComment(data) {
+        var commentsContainer = document.getElementById('comments-container');
+        if (!commentsContainer) {
+            return;
+        }
+        var commentDiv = document.createElement('div');
+        commentDiv.classList.add('comment');
+        commentDiv.id = 'comment-' + data.comment.id;
+        commentDiv.innerHTML = `
+            <div class="content">${data.comment.content}</div>
+            <div class="meta">By ${data.username}</div>
+            <div class="resolve-btn" onclick="resolveComment(${data.comment.id})">Resolve</div>
+        `;
+        commentsContainer.appendChild(commentDiv);
+
+        // Store the range for later removal
+        commentRanges[data.comment.id] = data.comment.range;
+    }
+
+    // Function to remove a comment
+    function removeComment(commentId) {
+        var commentDiv = document.getElementById('comment-' + commentId);
+        if (commentDiv) {
+            commentDiv.remove();
+        }
+        var range = commentRanges[commentId];
+        if (range) {
+            quill.formatText(range.index, range.length, { 'background': false });
+            delete commentRanges[commentId];
+        }
+    }
+
+    // Function to resolve a comment
+    function resolveComment(commentId) {
+        // Send a message to the server to resolve the comment
+        var message = JSON.stringify({
+            'type': 'resolve_comment',
+            'comment_id': commentId
+        });
+        socket.send(message);
+    }
 
     socket.onmessage = function(e) {
         const data = JSON.parse(e.data);
@@ -548,6 +669,15 @@ footer {
                     cursors.removeCursor(userIdStr);
                 }
             }
+        } else if (data.type === 'comment') {
+            // Display the comment
+            displayComment(data);
+            // Highlight the text
+            var range = data.comment.range;
+            quill.formatText(range.index, range.length, { 'background': '#ffff00' });
+        } else if (data.type === 'resolve_comment') {
+            // Remove the comment
+            removeComment(data.comment_id);
         } else if (data.type === 'user_left') {
             // Remove cursor when user disconnects
             cursors.removeCursor(data.user_id.toString());
@@ -651,7 +781,21 @@ footer {
             });
         }
     });
-</script>
+
+    // Load existing comments when initializing the editor
+    fetch("{% url 'get_comments' document.pk %}")
+        .then(response => response.json())
+        .then(data => {
+            data.comments.forEach(comment => {
+                displayComment({
+                    comment: comment,
+                    username: comment.username
+                });
+                // Highlight the text
+                quill.formatText(comment.range.index, comment.range.length, { 'background': '#ffff00' });
+            });
+        });
+    </script>
 {% endblock %}
 # FILE: ./templates/login.html
 {% extends 'base.html' %}
@@ -701,6 +845,56 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# FILE: ./editor/migrations/0004_comment.py
+# Generated by Django 4.2.5 on 2024-11-24 16:47
+
+from django.conf import settings
+from django.db import migrations, models
+import django.db.models.deletion
+
+
+class Migration(migrations.Migration):
+    dependencies = [
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ("editor", "0003_remove_document_owner_document_collaborators"),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name="Comment",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("range", models.JSONField()),
+                ("content", models.TextField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                ("resolved", models.BooleanField(default=False)),
+                (
+                    "document",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="comments",
+                        to="editor.document",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+            ],
+        ),
+    ]
 
 # FILE: ./editor/migrations/0003_remove_document_owner_document_collaborators.py
 # Generated by Django 5.1.3 on 2024-11-14 22:05
@@ -813,12 +1007,24 @@ class Document(models.Model):
     def __str__(self):
         return self.title
 
+# Add the Comment model below the Document model
+class Comment(models.Model):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='comments')
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    # Store the range as JSON: {'index': int, 'length': int}
+    range = models.JSONField()
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    resolved = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f'Comment by {self.user.username} on {self.document.title}'
 # FILE: ./editor/consumers.py
 # editor/consumers.py
 
 from channels.generic.websocket import AsyncWebsocketConsumer
 from asgiref.sync import sync_to_async
-from .models import Document
+from .models import Document, Comment  # Add Comment here
 from django.contrib.auth.models import User
 import json
 import random
@@ -926,6 +1132,75 @@ class DocumentConsumer(AsyncWebsocketConsumer):
                         'sender_channel_name': self.channel_name
                     }
                 )
+        elif message_type == 'comment':
+            # Handle new comment
+            comment_data = data.get('comment')
+            if comment_data:
+                # Create comment and get updated data with ID
+                comment_data = await self.create_comment(comment_data)
+                # Broadcast the comment to other clients
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'broadcast_comment',
+                        'comment': comment_data,
+                        'user_id': self.user.id,
+                        'username': self.user.username
+                    }
+                )
+        elif message_type == 'resolve_comment':
+            # Handle comment resolution
+            comment_id = data.get('comment_id')
+            if comment_id:
+                await self.resolve_comment(comment_id)
+                # Broadcast the resolution to other clients
+                await self.channel_layer.group_send(
+                    self.room_group_name,
+                    {
+                        'type': 'broadcast_resolve_comment',
+                        'comment_id': comment_id
+                    }
+                )
+        # New method to create a comment
+    @sync_to_async
+    def create_comment(self, comment_data):
+        document = Document.objects.get(pk=self.document_id)
+        comment = Comment.objects.create(
+            document=document,
+            user=self.user,
+            range=comment_data['range'],
+            content=comment_data['content']
+        )
+        # Add comment ID to comment_data
+        comment_data['id'] = comment.id
+        return comment_data
+
+    # New method to resolve a comment
+    @sync_to_async
+    def resolve_comment(self, comment_id):
+        try:
+            comment = Comment.objects.get(pk=comment_id)
+            comment.resolved = True
+            comment.save()
+        except Comment.DoesNotExist:
+            pass
+
+    # Event handler to broadcast a new comment
+    async def broadcast_comment(self, event):
+        comment = event['comment']
+        await self.send(text_data=json.dumps({
+            'type': 'comment',
+            'comment': comment,
+            'user_id': event['user_id'],
+            'username': event['username']
+        }))
+
+    # Event handler to broadcast comment resolution
+    async def broadcast_resolve_comment(self, event):
+        await self.send(text_data=json.dumps({
+            'type': 'resolve_comment',
+            'comment_id': event['comment_id']
+        }))
 
     async def update_document_content(self, delta_ops):
         await self.apply_delta_to_document(delta_ops)
@@ -1081,6 +1356,17 @@ class RegisterForm(UserCreationForm):
         model = User
         fields = ['username', 'email', 'password1', 'password2']
 
+class CollaboratorsForm(forms.ModelForm):
+    collaborators = forms.ModelMultipleChoiceField(
+        queryset=User.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Share with"
+    )
+
+    class Meta:
+        model = Document
+        fields = ['collaborators']
 # FILE: ./editor/admin.py
 from django.contrib import admin
 
@@ -1116,6 +1402,8 @@ urlpatterns = [
     path('document/new/', views.document_create, name='document_create'),
     path('document/<int:pk>/edit/', views.document_edit, name='document_edit'),
     path('document/<int:pk>/delete/', views.document_delete, name='document_delete'),
+    path('document/<int:pk>/get_comments/', views.get_comments, name='get_comments'),
+
 
 ]
 
@@ -1124,11 +1412,12 @@ urlpatterns = [
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
-from .forms import RegisterForm, DocumentForm
-from .models import Document
+from .forms import RegisterForm, DocumentForm, CollaboratorsForm 
+from .models import Document, Comment
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
+import json
 
 def register(request):
     if request.method == 'POST':
@@ -1164,30 +1453,31 @@ def document_create(request):
 @csrf_exempt  # Add this decorator
 @login_required
 def document_edit(request, pk):
-    print(pk)
     document = get_object_or_404(Document, pk=pk, collaborators=request.user)
     if request.method == 'POST':
-        print(request.POST)
-        if request.POST.get("title"):
-            # Update the title
-            new_title = request.POST.get('title')
+        if request.content_type == 'application/json':
+            # Handle AJAX request for title update
+            data = json.loads(request.body)
+            new_title = data.get('title')
             if new_title:
                 document.title = new_title
                 document.save()
                 return JsonResponse({'status': 'success'})
             else:
                 return HttpResponseBadRequest('Invalid title')
-        else:
-            # Update the document
-            form = DocumentForm(request.POST, instance=document)
-            if form.is_valid():
-                document = form.save()
-                form.save_m2m()
-                # document.collaborators = 
+        elif 'form_type' in request.POST and request.POST.get('form_type') == 'collaborators_form':
+            # Handle collaborators form submission
+            collaborators_form = CollaboratorsForm(request.POST, instance=document)
+            if collaborators_form.is_valid():
+                collaborators_form.save()
                 return redirect('document_edit', pk=document.pk)
+            else:
+                print(collaborators_form.errors)
+        else:
+            return HttpResponseBadRequest('Invalid form submission')
     else:
-        form = DocumentForm(instance=document)
-    return render(request, 'editor.html', {'document': document, 'form': form})
+        collaborators_form = CollaboratorsForm(instance=document)
+    return render(request, 'editor.html', {'document': document, 'collaborators_form': collaborators_form})
 
 @login_required
 def document_delete(request, pk):
@@ -1196,3 +1486,17 @@ def document_delete(request, pk):
         document.delete()
         return redirect('document_list')
     return render(request, 'document_confirm_delete.html', {'document': document})
+
+@login_required
+def get_comments(request, pk):
+    document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+    comments = document.comments.filter(resolved=False).select_related('user')
+    comments_list = []
+    for comment in comments:
+        comments_list.append({
+            'id': comment.id,
+            'range': comment.range,
+            'content': comment.content,
+            'username': comment.user.username,
+        })
+    return JsonResponse({'comments': comments_list})

@@ -3,7 +3,7 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
 from .forms import RegisterForm, DocumentForm, CollaboratorsForm 
-from .models import Document
+from .models import Document, Comment
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
@@ -76,3 +76,17 @@ def document_delete(request, pk):
         document.delete()
         return redirect('document_list')
     return render(request, 'document_confirm_delete.html', {'document': document})
+
+@login_required
+def get_comments(request, pk):
+    document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+    comments = document.comments.filter(resolved=False).select_related('user')
+    comments_list = []
+    for comment in comments:
+        comments_list.append({
+            'id': comment.id,
+            'range': comment.range,
+            'content': comment.content,
+            'username': comment.user.username,
+        })
+    return JsonResponse({'comments': comments_list})
