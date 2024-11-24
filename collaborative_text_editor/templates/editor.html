@@ -1,3 +1,5 @@
+<!-- /Users/ziv/Desktop/Collab_Text_2/collaborative_text_editor/templates/editor.html -->
+
 {% extends 'base.html' %}
 
 {% block extra_head %}
@@ -6,18 +8,43 @@
 
 <!-- Custom CSS for comments and cursors -->
 <style>
+    /* Apply styles to elements with 'data-comment-id' attribute */
+    span[data-comment-id] {
+        background-color: #ffff00; /* Light yellow background */
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+    /* Darker highlight when hovering over comment in sidebar */
+    span[data-comment-id].highlighted {
+        background-color: #ffd700; /* Gold color */
+    }
+
+    /* Light blue highlight when clicking on a comment */
+    span[data-comment-id].active-highlight {
+        background-color: #add8e6; /* Light blue */
+    }
+
+    /* Comments Sidebar Styling */
     #comments-container {
         background-color: #f9f9f9;
         border-left: 1px solid #ccc;
-        padding: 10px;
+        padding: 15px;
         overflow-y: auto;
         height: calc(100vh - 100px);
     }
 
     .comment {
-        border-bottom: 1px solid #ddd;
-        padding: 5px 0;
-        cursor: pointer; /* Make comments clickable */
+        background-color: #f1f1f1;
+        border-radius: 4px;
+        padding: 10px;
+        margin-bottom: 10px;
+        transition: background-color 0.2s ease;
+        cursor: pointer;
+    }
+
+    .comment:hover {
+        background-color: #e6f7ff;
     }
 
     .comment .content {
@@ -31,57 +58,135 @@
 
     .comment .resolve-btn {
         font-size: 12px;
-        color: #007bff;
+        color: #dc3545;
         cursor: pointer;
+        text-decoration: underline;
     }
 
-    .commented-text {
-        background-color: #ffff00; /* Yellow background */
-        cursor: pointer;
+    .comment .resolve-btn:hover {
+        color: #a71d2a;
     }
 
-    .comment.highlight {
-        background-color: #ffeeba; /* Light yellow */
+    /* Active Users Styling */
+    #active-users {
+        margin-top: 20px;
     }
 
-    /* Styles for quill-cursors */
-    .ql-cursor {
-        position: absolute;
-        pointer-events: none;
-        transform: translateY(-1px);
-        opacity: 1;
-        z-index: 1000;
-        will-change: left, top;
+    #active-users-list {
+        display: flex;
+        flex-wrap: wrap;
     }
 
-    .ql-cursor .ql-cursor-flag {
-        position: absolute;
-        transform: translateY(-100%);
-        white-space: nowrap;
+    #active-users-list .user-item {
+        display: flex;
+        align-items: center;
+        margin-right: 15px;
+        margin-bottom: 10px;
     }
 
-    .ql-cursor .ql-cursor-name {
-        display: inline-block;
-        padding: 2px 5px;
-        font-size: 12px;
-        line-height: 1;
+    #active-users-list .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #007bff;
         color: #fff;
-        background-color: #000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 10px;
+    }
+
+    #active-users-list .username {
+        font-size: 14px;
+        color: #333;
+    }
+
+    /* General Styling Enhancements */
+
+    /* Navigation Bar */
+    .navbar-brand {
+        font-weight: bold;
+        font-size: 1.5rem;
+    }
+
+    .navbar-text a {
+        margin-left: 10px;
+        color: #007bff;
+        text-decoration: none;
+    }
+
+    .navbar-text a:hover {
+        text-decoration: underline;
+    }
+
+    /* Editor Container */
+    #editor-container {
+        height: 500px;
+        border: 1px solid #ccc;
+        background-color: #fff;
         border-radius: 4px;
     }
 
-    .ql-cursor .ql-cursor-caret {
-        position: absolute;
-        width: 2px;
-        background-color: black;
-        animation: ql-blink 1s infinite;
+    /* Footer */
+    footer {
+        background-color: #fff;
+        padding: 15px 20px;
+        border-top: 1px solid #e0e0e0;
+        text-align: center;
+        position: fixed;
+        width: 100%;
+        bottom: 0;
     }
 
-    @keyframes ql-blink {
-        0% { opacity: 1 }
-        50% { opacity: 1 }
-        50.01% { opacity: 0 }
-        100% { opacity: 0 }
+    /* Buttons */
+    .btn-success {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+
+    .btn-success:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+
+    .btn-primary:hover {
+        background-color: #0069d9;
+        border-color: #0062cc;
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+
+    .btn-danger:hover {
+        background-color: #c82333;
+        border-color: #bd2130;
+    }
+
+    .btn-outline-primary {
+        color: #007bff;
+        border-color: #007bff;
+    }
+
+    .btn-outline-primary:hover {
+        background-color: #007bff;
+        color: #fff;
+    }
+
+    .btn-link {
+        color: #007bff;
+    }
+
+    .btn-link:hover {
+        color: #0056b3;
+        text-decoration: underline;
     }
 </style>
 {% endblock %}
@@ -101,7 +206,7 @@
             </div>
 
             <!-- Editor Container -->
-            <div id="editor-container" style="height: 500px;"></div>
+            <div id="editor-container"></div>
 
             <!-- Active Users List -->
             <div id="active-users" class="mt-4">
@@ -169,24 +274,23 @@
     // Register QuillCursors module
     Quill.register('modules/cursors', window.QuillCursors);
 
-    // Register the icon for 'comment'
-    var icons = Quill.import('ui/icons');
-    icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></path></svg>';
-
-    // Define the 'comment' class attributor
+    // Import Parchment
     var Parchment = Quill.import('parchment');
-
-    var CommentClass = new Parchment.Attributor.Class('comment', 'commented-text', {
-        scope: Parchment.Scope.INLINE
-    });
 
     // Define the 'comment' attribute attributor
     var CommentAttribute = new Parchment.Attributor.Attribute('comment', 'data-comment-id', {
         scope: Parchment.Scope.INLINE
     });
 
-    Quill.register(CommentClass, true);
+    // Register the 'comment' attribute attributor
     Quill.register(CommentAttribute, true);
+
+    // Define the 'highlight' class attributor
+    var HighlightClass = new Parchment.Attributor.Class('highlight', 'highlighted', {
+        scope: Parchment.Scope.INLINE
+    });
+
+    Quill.register(HighlightClass, true);
 
     // Initialize Quill editor with cursors module and toolbar enabled
     const quill = new Quill('#editor-container', {
@@ -222,9 +326,9 @@
                                 });
                                 socket.send(message);
 
-                                // Apply the 'comment' format with the comment ID
-                                // Use a temporary ID; the server should send back the actual ID
-                                quill.formatText(range.index, range.length, 'comment', 'temp-' + Date.now());
+                                // Apply the 'comment' format with a temporary ID
+                                var tempId = 'temp-' + Date.now();
+                                quill.formatText(range.index, range.length, 'comment', tempId);
 
                                 // Move the cursor to the end of the formatted range
                                 quill.setSelection(range.index + range.length, 0);
@@ -337,9 +441,7 @@
     function highlightText(commentId) {
         let ranges = findCommentRanges(commentId);
         ranges.forEach(range => {
-            quill.formatText(range.index, range.length, {
-                'background': '#ffd700' // Gold color when hovering
-            }, 'silent');
+            quill.formatText(range.index, range.length, 'highlight', true, 'silent');
         });
     }
 
@@ -347,9 +449,7 @@
     function removeTextHighlight(commentId) {
         let ranges = findCommentRanges(commentId);
         ranges.forEach(range => {
-            quill.formatText(range.index, range.length, {
-                'background': '#ffff00' // Original highlight color
-            }, 'silent');
+            quill.formatText(range.index, range.length, 'highlight', false, 'silent');
         });
     }
 
@@ -364,10 +464,10 @@
             // Set the selection to highlight the text (optional)
             quill.setSelection(range.index, range.length, 'silent');
 
-            // Optionally, add a temporary highlight to draw attention
-            quill.formatText(range.index, range.length, { 'background': '#add8e6' }, 'silent'); // Light blue
+            // Add a temporary active highlight
+            quill.formatText(range.index, range.length, 'active-highlight', true, 'silent');
             setTimeout(() => {
-                quill.formatText(range.index, range.length, { 'background': '#ffff00' }, 'silent'); // Revert to original
+                quill.formatText(range.index, range.length, 'active-highlight', false, 'silent');
             }, 2000);
         }
     }
@@ -389,7 +489,8 @@
             if (isLocal) {
                 // If the removal is initiated locally (by resolving the comment),
                 // send a delta to the server to inform other clients.
-                let delta = new Quill.import('delta')();
+                let Delta = Quill.import('delta');
+                let delta = new Delta();
                 let position = 0;
                 ranges.forEach(range => {
                     delta.retain(range.index - position);
@@ -471,6 +572,19 @@
     // Send changes to the server
     quill.on('text-change', function(delta, oldDelta, source) {
         if (source === 'user') {
+            let index = 0;
+            delta.ops.forEach(function(op) {
+                if (op.retain) {
+                    index += op.retain;
+                } else if (op.insert) {
+                    let length = op.insert.length || 1;
+                    // Remove 'comment' format from the inserted text
+                    quill.formatText(index, length, 'comment', false, 'silent');
+                    index += length;
+                } else if (op.delete) {
+                    // Deletion, do nothing
+                }
+            });
             const deltaOps = delta.ops;
             const message = JSON.stringify({'type': 'delta', 'delta': deltaOps});
             socket.send(message);
@@ -503,22 +617,15 @@
             activeUsersListContainer.innerHTML = '';
             users.forEach(function(user) {
                 const userElement = document.createElement('div');
-                userElement.className = 'me-3 text-center mb-3';
+                userElement.className = 'user-item';
 
                 const avatar = document.createElement('div');
-                avatar.style.width = '40px';
-                avatar.style.height = '40px';
-                avatar.style.borderRadius = '50%';
+                avatar.className = 'avatar';
                 avatar.style.backgroundColor = user.color;
-                avatar.style.color = '#fff';
-                avatar.style.display = 'flex';
-                avatar.style.alignItems = 'center';
-                avatar.style.justifyContent = 'center';
-                avatar.style.fontWeight = 'bold';
                 avatar.textContent = user.username.charAt(0).toUpperCase();
 
                 const username = document.createElement('div');
-                username.style.fontSize = '12px';
+                username.className = 'username';
                 username.textContent = user.username;
 
                 userElement.appendChild(avatar);
