@@ -173,26 +173,20 @@
     var icons = Quill.import('ui/icons');
     icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></path></svg>';
 
-    // Define a custom 'comment' format
-    var Inline = Quill.import('blots/inline');
+    // Define the 'comment' class attributor
+    var Parchment = Quill.import('parchment');
 
-    class CommentBlot extends Inline {
-        static create(id) {
-            let node = super.create();
-            node.setAttribute('data-comment-id', id);
-            return node;
-        }
+    var CommentClass = new Parchment.Attributor.Class('comment', 'commented-text', {
+        scope: Parchment.Scope.INLINE
+    });
 
-        static formats(node) {
-            return node.getAttribute('data-comment-id');
-        }
-    }
+    // Define the 'comment' attribute attributor
+    var CommentAttribute = new Parchment.Attributor.Attribute('comment', 'data-comment-id', {
+        scope: Parchment.Scope.INLINE
+    });
 
-    CommentBlot.blotName = 'comment';
-    CommentBlot.tagName = 'span';
-    CommentBlot.className = 'commented-text';
-
-    Quill.register(CommentBlot);
+    Quill.register(CommentClass, true);
+    Quill.register(CommentAttribute, true);
 
     // Initialize Quill editor with cursors module and toolbar enabled
     const quill = new Quill('#editor-container', {
@@ -228,8 +222,15 @@
                                 });
                                 socket.send(message);
 
-                                // Apply the custom 'comment' format with a temporary ID
+                                // Apply the 'comment' format with the comment ID
+                                // Use a temporary ID; the server should send back the actual ID
                                 quill.formatText(range.index, range.length, 'comment', 'temp-' + Date.now());
+
+                                // Move the cursor to the end of the formatted range
+                                quill.setSelection(range.index + range.length, 0);
+
+                                // Reset the 'comment' format so that new text does not inherit it
+                                quill.format('comment', false);
                             }
                         } else {
                             alert('Please select text to comment on.');
@@ -270,8 +271,28 @@
         sendCursorPosition();
     };
 
-    // Global object to store comment ranges
-    var commentRanges = {};
+    // Function to dynamically find all ranges associated with a comment ID
+    function findCommentRanges(commentId) {
+        const delta = quill.getContents();
+        let index = 0;
+        let ranges = [];
+
+        delta.ops.forEach(op => {
+            let insertLength;
+            if (typeof op.insert === 'string') {
+                insertLength = op.insert.length;
+            } else {
+                insertLength = 1; // For embeds like images
+            }
+
+            if (op.attributes && op.attributes.comment === commentId.toString()) {
+                ranges.push({ index: index, length: insertLength });
+            }
+            index += insertLength;
+        });
+
+        return ranges;
+    }
 
     // Function to display a comment
     function displayComment(data) {
@@ -285,12 +306,9 @@
         commentDiv.innerHTML = `
             <div class="content">${data.comment.content}</div>
             <div class="meta">By ${data.username}</div>
-            <div class="resolve-btn" onclick="resolveComment(${data.comment.id})">Resolve</div>
+            <div class="resolve-btn" onclick="resolveComment(${data.comment.id}); event.stopPropagation();">Resolve</div>
         `;
         commentsContainer.appendChild(commentDiv);
-
-        // Store the range for later use
-        commentRanges[data.comment.id] = data.comment.range;
 
         // Update the 'comment' format with the actual comment ID
         quill.formatText(
@@ -317,71 +335,71 @@
 
     // Function to highlight text when hovering over a comment
     function highlightText(commentId) {
-        let range = commentRanges[commentId];
-        if (range) {
+        let ranges = findCommentRanges(commentId);
+        ranges.forEach(range => {
             quill.formatText(range.index, range.length, {
                 'background': '#ffd700' // Gold color when hovering
-            });
-        }
+            }, 'silent');
+        });
     }
 
     // Function to remove the highlight from text
     function removeTextHighlight(commentId) {
-        let range = commentRanges[commentId];
-        if (range) {
+        let ranges = findCommentRanges(commentId);
+        ranges.forEach(range => {
             quill.formatText(range.index, range.length, {
                 'background': '#ffff00' // Original highlight color
-            });
-        }
+            }, 'silent');
+        });
     }
 
     // Function to navigate to the comment in the editor
     function navigateToEditorComment(commentId) {
-        let range = commentRanges[commentId];
-        if (range) {
-            // Scroll to the comment's position
+        let ranges = findCommentRanges(commentId);
+        if (ranges.length > 0) {
+            let range = ranges[0]; // Navigate to the first range
+            // Scroll to the comment's position in the editor
             quill.scrollIntoView(quill.getBounds(range.index));
-            // Optionally, set selection to highlight the text
+
+            // Set the selection to highlight the text (optional)
             quill.setSelection(range.index, range.length, 'silent');
-            // Optionally, add a temporary highlight
-            quill.formatText(range.index, range.length, { 'background': '#add8e6' }); // Light blue
+
+            // Optionally, add a temporary highlight to draw attention
+            quill.formatText(range.index, range.length, { 'background': '#add8e6' }, 'silent'); // Light blue
             setTimeout(() => {
-                quill.formatText(range.index, range.length, { 'background': '#ffff00' });
+                quill.formatText(range.index, range.length, { 'background': '#ffff00' }, 'silent'); // Revert to original
             }, 2000);
         }
     }
 
-    // Scroll to comment when commented text is clicked in the editor
-    quill.root.addEventListener('click', function(event) {
-        let element = event.target;
-        while (element != null && !element.classList.contains('commented-text')) {
-            element = element.parentElement;
-        }
-        if (element != null) {
-            let commentId = element.getAttribute('data-comment-id');
-            highlightComment(commentId);
-        }
-    });
-
-    function highlightComment(commentId) {
-        let commentDiv = document.getElementById('comment-' + commentId);
-        if (commentDiv) {
-            commentDiv.scrollIntoView({ behavior: 'smooth' });
-            commentDiv.classList.add('highlight');
-            setTimeout(() => commentDiv.classList.remove('highlight'), 2000);
-        }
-    }
-
-    // Function to remove a comment
-    function removeComment(commentId) {
+    // Function to remove a comment from the sidebar and editor
+    function removeComment(commentId, isLocal = false) {
         var commentDiv = document.getElementById('comment-' + commentId);
         if (commentDiv) {
             commentDiv.remove();
         }
-        var range = commentRanges[commentId];
-        if (range) {
-            quill.formatText(range.index, range.length, { 'comment': false });
-            delete commentRanges[commentId];
+
+        let ranges = findCommentRanges(commentId);
+        if (ranges.length > 0) {
+            ranges.forEach(range => {
+                // Remove the 'comment' format from the specified range
+                quill.formatText(range.index, range.length, 'comment', false, 'silent');
+            });
+
+            if (isLocal) {
+                // If the removal is initiated locally (by resolving the comment),
+                // send a delta to the server to inform other clients.
+                let delta = new Quill.import('delta')();
+                let position = 0;
+                ranges.forEach(range => {
+                    delta.retain(range.index - position);
+                    delta.retain(range.length, { 'comment': false });
+                    position = range.index + range.length;
+                });
+
+                var message = JSON.stringify({ 'type': 'delta', 'delta': delta.ops });
+                socket.send(message);
+            }
         }
     }
 
@@ -393,6 +411,9 @@
             'comment_id': commentId
         });
         socket.send(message);
+
+        // Remove the comment locally and indicate it's a local action
+        removeComment(commentId, true);
     }
 
     socket.onmessage = function(e) {
@@ -428,8 +449,8 @@
             // Display the comment
             displayComment(data);
         } else if (data.type === 'resolve_comment') {
-            // Remove the comment
-            removeComment(data.comment_id);
+            // Remove the comment without sending a delta back
+            removeComment(data.comment_id, false);
         } else if (data.type === 'user_left') {
             // Remove cursor when user disconnects
             cursors.removeCursor(data.user_id.toString());
