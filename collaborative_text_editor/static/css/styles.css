@@ -45,17 +45,17 @@ footer {
 }
 
 /* Quill editor adjustments */
-.ql-toolbar.ql-snow {
+/* .ql-toolbar.ql-snow {
     border: none;
     border-bottom: 1px solid #ccc;
 }
 
 .ql-container.ql-snow {
     border: none;
-}
+} */
 
  /* Styles for quill-cursors */
- .ql-cursor {
+ /* .ql-cursor {
     position: absolute;
     pointer-events: none;
     transform: translateY(-1px);
@@ -85,7 +85,7 @@ footer {
     width: 2px;
     background-color: black;
     animation: ql-blink 1s infinite;
-}
+} */
 
 @keyframes ql-blink {
     0% { opacity: 1 }
