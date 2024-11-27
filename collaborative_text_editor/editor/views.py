@@ -1,9 +1,9 @@
-# editor/views.py
+# FILE: ./editor/views.py
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
 from .forms import RegisterForm, DocumentForm, CollaboratorsForm 
-from .models import Document, Comment
+from .models import Document, Comment, DocumentVersion  # Import DocumentVersion
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
@@ -90,3 +90,61 @@ def get_comments(request, pk):
             'username': comment.user.username,
         })
     return JsonResponse({'comments': comments_list})
+
+# --- Version Control View Functions ---
+
+@csrf_exempt
+@login_required
+def save_version(request, pk):
+    if request.method == 'POST':
+        document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+        try:
+            data = json.loads(request.body)
+            content = data.get('content')
+            if content:
+                # Create a new DocumentVersion
+                DocumentVersion.objects.create(
+                    document=document,
+                    content=json.dumps(content),
+                    user=request.user
+                )
+                return JsonResponse({'status': 'success'})
+            else:
+                return HttpResponseBadRequest('No content provided.')
+        except json.JSONDecodeError:
+            return HttpResponseBadRequest('Invalid JSON.')
+    else:
+        return HttpResponseBadRequest('Invalid request method.')
+
+@login_required
+def list_versions(request, pk):
+    document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+    versions = document.versions.order_by('-created_at').select_related('user')
+    versions_list = []
+    for version in versions:
+        versions_list.append({
+            'id': version.id,
+            'username': version.user.username if version.user else 'Unknown',
+            'created_at': version.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+        })
+    return JsonResponse({'versions': versions_list})
+
+@csrf_exempt
+@login_required
+def restore_version(request, pk):
+    if request.method == 'POST':
+        document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+        try:
+            data = json.loads(request.body)
+            version_id = data.get('version_id')
+            if version_id:
+                version = get_object_or_404(DocumentVersion, pk=version_id, document=document)
+                document.content = version.content
+                document.save()
+                return JsonResponse({'status': 'success'})
+            else:
+                return HttpResponseBadRequest('No version ID provided.')
+        except json.JSONDecodeError:
+            return HttpResponseBadRequest('Invalid JSON.')
+    else:
+        return HttpResponseBadRequest('Invalid request method.')

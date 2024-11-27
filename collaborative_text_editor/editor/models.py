@@ -1,4 +1,4 @@
-# editor/models.py
+# FILE: ./editor/models.py
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -16,7 +16,17 @@ class Document(models.Model):
     def __str__(self):
         return self.title
 
-# Add the Comment model below the Document model
+# Add the DocumentVersion model below the Document model
+class DocumentVersion(models.Model):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='versions')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+
+    def __str__(self):
+        return f'Version of "{self.document.title}" at {self.created_at}'
+
+# Add the Comment model below the DocumentVersion model
 class Comment(models.Model):
     document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='comments')
     user = models.ForeignKey(User, on_delete=models.CASCADE)

@@ -285,17 +285,17 @@ footer {
 }
 
 /* Quill editor adjustments */
-.ql-toolbar.ql-snow {
+/* .ql-toolbar.ql-snow {
     border: none;
     border-bottom: 1px solid #ccc;
 }
 
 .ql-container.ql-snow {
     border: none;
-}
+} */
 
  /* Styles for quill-cursors */
- .ql-cursor {
+ /* .ql-cursor {
     position: absolute;
     pointer-events: none;
     transform: translateY(-1px);
@@ -325,7 +325,7 @@ footer {
     width: 2px;
     background-color: black;
     animation: ql-blink 1s infinite;
-}
+} */
 
 @keyframes ql-blink {
     0% { opacity: 1 }
@@ -443,6 +443,8 @@ footer {
 </form>
 {% endblock %}
 # FILE: ./templates/editor.html
+<!-- FILE: ./templates/editor.html -->
+
 {% extends 'base.html' %}
 
 {% block extra_head %}
@@ -451,18 +453,43 @@ footer {
 
 <!-- Custom CSS for comments and cursors -->
 <style>
+    /* Apply styles to elements with 'data-comment-id' attribute */
+    span[data-comment-id] {
+        background-color: #ffff00; /* Light yellow background */
+        cursor: pointer;
+        transition: background-color 0.2s ease;
+    }
+
+    /* Darker highlight when hovering over comment in sidebar */
+    span[data-comment-id].highlighted {
+        background-color: #ffd700; /* Gold color */
+    }
+
+    /* Light blue highlight when clicking on a comment */
+    span[data-comment-id].active-highlight {
+        background-color: #add8e6; /* Light blue */
+    }
+
+    /* Comments Sidebar Styling */
     #comments-container {
         background-color: #f9f9f9;
         border-left: 1px solid #ccc;
-        padding: 10px;
+        padding: 15px;
         overflow-y: auto;
         height: calc(100vh - 100px);
     }
 
     .comment {
-        border-bottom: 1px solid #ddd;
-        padding: 5px 0;
-        cursor: pointer; /* Make comments clickable */
+        background-color: #f1f1f1;
+        border-radius: 4px;
+        padding: 10px;
+        margin-bottom: 10px;
+        transition: background-color 0.2s ease;
+        cursor: pointer;
+    }
+
+    .comment:hover {
+        background-color: #e6f7ff;
     }
 
     .comment .content {
@@ -476,20 +503,137 @@ footer {
 
     .comment .resolve-btn {
         font-size: 12px;
+        color: #dc3545;
+        cursor: pointer;
+        text-decoration: underline;
+    }
+
+    .comment .resolve-btn:hover {
+        color: #a71d2a;
+    }
+
+    /* Active Users Styling */
+    #active-users {
+        margin-top: 20px;
+    }
+
+    #active-users-list {
+        display: flex;
+        flex-wrap: wrap;
+    }
+
+    #active-users-list .user-item {
+        display: flex;
+        align-items: center;
+        margin-right: 15px;
+        margin-bottom: 10px;
+    }
+
+    #active-users-list .avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #007bff;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 10px;
+    }
+
+    #active-users-list .username {
+        font-size: 14px;
+        color: #333;
+    }
+
+    /* General Styling Enhancements */
+
+    /* Navigation Bar */
+    .navbar-brand {
+        font-weight: bold;
+        font-size: 1.5rem;
+    }
+
+    .navbar-text a {
+        margin-left: 10px;
         color: #007bff;
-        cursor: pointer;
+        text-decoration: none;
     }
 
-    .commented-text {
-        background-color: #ffff00; /* Yellow background */
-        cursor: pointer;
+    .navbar-text a:hover {
+        text-decoration: underline;
     }
 
-    .comment.highlight {
-        background-color: #ffeeba; /* Light yellow */
+    /* Editor Container */
+    #editor-container {
+        height: 500px;
+        border: 1px solid #ccc;
+        background-color: #fff;
+        border-radius: 4px;
     }
 
-   
+    /* Footer */
+    footer {
+        background-color: #fff;
+        padding: 15px 20px;
+        border-top: 1px solid #e0e0e0;
+        text-align: center;
+        position: fixed;
+        width: 100%;
+        bottom: 0;
+    }
+
+    /* Buttons */
+    .btn-success {
+        background-color: #28a745;
+        border-color: #28a745;
+    }
+
+    .btn-success:hover {
+        background-color: #218838;
+        border-color: #1e7e34;
+    }
+
+    .btn-primary {
+        background-color: #007bff;
+        border-color: #007bff;
+    }
+
+    .btn-primary:hover {
+        background-color: #0069d9;
+        border-color: #0062cc;
+    }
+
+    .btn-danger {
+        background-color: #dc3545;
+        border-color: #dc3545;
+    }
+
+    .btn-danger:hover {
+        background-color: #c82333;
+        border-color: #bd2130;
+    }
+
+    .btn-outline-primary {
+        color: #007bff;
+        border-color: #007bff;
+    }
+
+    .btn-outline-primary:hover {
+        background-color: #007bff;
+        color: #fff;
+    }
+
+    .btn-link {
+        color: #007bff;
+    }
+
+    .btn-link:hover {
+        color: #0056b3;
+        text-decoration: underline;
+    }
+    
 </style>
 {% endblock %}
 
@@ -498,17 +642,25 @@ footer {
     <div class="row">
         <!-- Editor Column -->
         <div class="col-md-9">
-            <!-- Document Title and Sharing Options -->
+            <!-- Document Title and Action Buttons -->
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h4 contenteditable="true" id="document-title" class="mb-0">{{ document.title }}</h4>
-                <!-- Share Button -->
-                <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#collaboratorsModal">
-                    Share
-                </button>
+                <div>
+                    <!-- Save Button -->
+                    <button type="button" class="btn btn-primary" id="save-button">Save</button>
+                    <!-- Version History Button -->
+                    <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#versionHistoryModal">
+                        Version History
+                    </button>
+                    <!-- Share Button -->
+                    <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#collaboratorsModal">
+                        Share
+                    </button>
+                </div>
             </div>
 
             <!-- Editor Container -->
-            <div id="editor-container" style="height: 500px;"></div>
+            <div id="editor-container"></div>
 
             <!-- Active Users List -->
             <div id="active-users" class="mt-4">
@@ -563,6 +715,28 @@ footer {
       </div>
     </div>
 </div>
+
+<!-- Version History Modal -->
+<div class="modal fade" id="versionHistoryModal" tabindex="-1" aria-labelledby="versionHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Version History</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <ul id="version-list" class="list-group">
+                    <!-- Versions will be loaded here -->
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_script %}
@@ -570,30 +744,32 @@ footer {
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <!-- Include quill-cursors script -->
 <script src="https://cdn.jsdelivr.net/npm/quill-cursors@3.0.0/dist/quill-cursors.min.js"></script>
+<!-- Include Bootstrap JS (for modals) -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- Initialize Quill editor and WebSocket -->
 <script>
     // Register QuillCursors module
     Quill.register('modules/cursors', window.QuillCursors);
 
-    // Register the icon for 'comment'
-    var icons = Quill.import('ui/icons');
-    icons['comment'] = '<svg viewBox="0 0 18 18"><path d="M3 3h12v10H5l-2 2V3z"></path></svg>';
-
-    // Define the 'comment' class attributor
+    // Import Parchment
     var Parchment = Quill.import('parchment');
-
-    var CommentClass = new Parchment.Attributor.Class('comment', 'commented-text', {
-        scope: Parchment.Scope.INLINE
-    });
 
     // Define the 'comment' attribute attributor
     var CommentAttribute = new Parchment.Attributor.Attribute('comment', 'data-comment-id', {
         scope: Parchment.Scope.INLINE
     });
 
-    Quill.register(CommentClass, true);
+    // Register the 'comment' attribute attributor
     Quill.register(CommentAttribute, true);
+
+    // Define the 'highlight' class attributor
+    var HighlightClass = new Parchment.Attributor.Class('highlight', 'highlighted', {
+        scope: Parchment.Scope.INLINE
+    });
+
+    Quill.register(HighlightClass, true);
 
     // Initialize Quill editor with cursors module and toolbar enabled
     const quill = new Quill('#editor-container', {
@@ -629,9 +805,9 @@ footer {
                                 });
                                 socket.send(message);
 
-                                // Apply the 'comment' format with the comment ID
-                                // Use a temporary ID; the server should send back the actual ID
-                                quill.formatText(range.index, range.length, 'comment', 'temp-' + Date.now());
+                                // Apply the 'comment' format with a temporary ID
+                                var tempId = 'temp-' + Date.now();
+                                quill.formatText(range.index, range.length, 'comment', tempId);
 
                                 // Move the cursor to the end of the formatted range
                                 quill.setSelection(range.index + range.length, 0);
@@ -744,9 +920,7 @@ footer {
     function highlightText(commentId) {
         let ranges = findCommentRanges(commentId);
         ranges.forEach(range => {
-            quill.formatText(range.index, range.length, {
-                'background': '#ffd700' // Gold color when hovering
-            }, 'silent');
+            quill.formatText(range.index, range.length, 'highlight', true, 'silent');
         });
     }
 
@@ -754,9 +928,7 @@ footer {
     function removeTextHighlight(commentId) {
         let ranges = findCommentRanges(commentId);
         ranges.forEach(range => {
-            quill.formatText(range.index, range.length, {
-                'background': '#ffff00' // Original highlight color
-            }, 'silent');
+            quill.formatText(range.index, range.length, 'highlight', false, 'silent');
         });
     }
 
@@ -771,10 +943,10 @@ footer {
             // Set the selection to highlight the text (optional)
             quill.setSelection(range.index, range.length, 'silent');
 
-            // Optionally, add a temporary highlight to draw attention
-            quill.formatText(range.index, range.length, { 'background': '#add8e6' }, 'silent'); // Light blue
+            // Add a temporary active highlight
+            quill.formatText(range.index, range.length, 'active-highlight', true, 'silent');
             setTimeout(() => {
-                quill.formatText(range.index, range.length, { 'background': '#ffff00' }, 'silent'); // Revert to original
+                quill.formatText(range.index, range.length, 'active-highlight', false, 'silent');
             }, 2000);
         }
     }
@@ -796,7 +968,8 @@ footer {
             if (isLocal) {
                 // If the removal is initiated locally (by resolving the comment),
                 // send a delta to the server to inform other clients.
-                let delta = new Quill.import('delta')();
+                let Delta = Quill.import('delta');
+                let delta = new Delta();
                 let position = 0;
                 ranges.forEach(range => {
                     delta.retain(range.index - position);
@@ -878,6 +1051,19 @@ footer {
     // Send changes to the server
     quill.on('text-change', function(delta, oldDelta, source) {
         if (source === 'user') {
+            let index = 0;
+            delta.ops.forEach(function(op) {
+                if (op.retain) {
+                    index += op.retain;
+                } else if (op.insert) {
+                    let length = op.insert.length || 1;
+                    // Remove 'comment' format from the inserted text
+                    quill.formatText(index, length, 'comment', false, 'silent');
+                    index += length;
+                } else if (op.delete) {
+                    // Deletion, do nothing
+                }
+            });
             const deltaOps = delta.ops;
             const message = JSON.stringify({'type': 'delta', 'delta': deltaOps});
             socket.send(message);
@@ -910,22 +1096,15 @@ footer {
             activeUsersListContainer.innerHTML = '';
             users.forEach(function(user) {
                 const userElement = document.createElement('div');
-                userElement.className = 'me-3 text-center mb-3';
+                userElement.className = 'user-item';
 
                 const avatar = document.createElement('div');
-                avatar.style.width = '40px';
-                avatar.style.height = '40px';
-                avatar.style.borderRadius = '50%';
+                avatar.className = 'avatar';
                 avatar.style.backgroundColor = user.color;
-                avatar.style.color = '#fff';
-                avatar.style.display = 'flex';
-                avatar.style.alignItems = 'center';
-                avatar.style.justifyContent = 'center';
-                avatar.style.fontWeight = 'bold';
                 avatar.textContent = user.username.charAt(0).toUpperCase();
 
                 const username = document.createElement('div');
-                username.style.fontSize = '12px';
+                username.className = 'username';
                 username.textContent = user.username;
 
                 userElement.appendChild(avatar);
@@ -973,6 +1152,91 @@ footer {
                 });
             });
         });
+
+    // --- Save Button Functionality ---
+    document.getElementById('save-button').addEventListener('click', function() {
+        // Get the current content of the editor
+        const content = quill.getContents();
+
+        // Send an AJAX POST request to save the version
+        fetch("{% url 'save_version' document.pk %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                'content': content
+            })
+        })
+        .then(response => {
+            if (response.ok) {
+                alert('Document saved successfully.');
+            } else {
+                alert('Error saving document.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error saving document.');
+        });
+    });
+
+    // --- Version History Functionality ---
+
+    // Function to load versions
+    function loadVersions() {
+        fetch("{% url 'list_versions' document.pk %}")
+            .then(response => response.json())
+            .then(data => {
+                const versionList = document.getElementById('version-list');
+                versionList.innerHTML = '';
+                data.versions.forEach(version => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    listItem.textContent = `Saved by ${version.username} at ${version.created_at}`;
+                    const restoreButton = document.createElement('button');
+                    restoreButton.className = 'btn btn-sm btn-outline-primary';
+                    restoreButton.textContent = 'Restore';
+                    restoreButton.addEventListener('click', function() {
+                        restoreVersion(version.id);
+                    });
+                    listItem.appendChild(restoreButton);
+                    versionList.appendChild(listItem);
+                });
+            });
+    }
+
+    // Function to restore a version
+    function restoreVersion(versionId) {
+        if (confirm('Are you sure you want to restore this version? This will overwrite the current document content.')) {
+            fetch("{% url 'restore_version' document.pk %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    'version_id': versionId
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Reload the page to reflect the restored content
+                    window.location.reload();
+                } else {
+                    alert('Error restoring version.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error restoring version.');
+            });
+        }
+    }
+
+    // Load versions when the modal is opened
+    $('#versionHistoryModal').on('show.bs.modal', loadVersions);
 </script>
 {% endblock %}
 # FILE: ./templates/login.html
@@ -1023,6 +1287,55 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# FILE: ./editor/migrations/0005_documentversion.py
+# Generated by Django 4.2.5 on 2024-11-27 20:43
+
+from django.conf import settings
+from django.db import migrations, models
+import django.db.models.deletion
+
+
+class Migration(migrations.Migration):
+    dependencies = [
+        migrations.swappable_dependency(settings.AUTH_USER_MODEL),
+        ("editor", "0004_comment"),
+    ]
+
+    operations = [
+        migrations.CreateModel(
+            name="DocumentVersion",
+            fields=[
+                (
+                    "id",
+                    models.BigAutoField(
+                        auto_created=True,
+                        primary_key=True,
+                        serialize=False,
+                        verbose_name="ID",
+                    ),
+                ),
+                ("content", models.TextField()),
+                ("created_at", models.DateTimeField(auto_now_add=True)),
+                (
+                    "document",
+                    models.ForeignKey(
+                        on_delete=django.db.models.deletion.CASCADE,
+                        related_name="versions",
+                        to="editor.document",
+                    ),
+                ),
+                (
+                    "user",
+                    models.ForeignKey(
+                        null=True,
+                        on_delete=django.db.models.deletion.SET_NULL,
+                        to=settings.AUTH_USER_MODEL,
+                    ),
+                ),
+            ],
+        ),
+    ]
 
 # FILE: ./editor/migrations/0004_comment.py
 # Generated by Django 4.2.5 on 2024-11-24 16:47
@@ -1167,7 +1480,7 @@ class Migration(migrations.Migration):
     ]
 
 # FILE: ./editor/models.py
-# editor/models.py
+# FILE: ./editor/models.py
 
 from django.db import models
 from django.contrib.auth.models import User
@@ -1185,7 +1498,17 @@ class Document(models.Model):
     def __str__(self):
         return self.title
 
-# Add the Comment model below the Document model
+# Add the DocumentVersion model below the Document model
+class DocumentVersion(models.Model):
+    document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='versions')
+    content = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+
+    def __str__(self):
+        return f'Version of "{self.document.title}" at {self.created_at}'
+
+# Add the Comment model below the DocumentVersion model
 class Comment(models.Model):
     document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='comments')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -1566,11 +1889,11 @@ from django.test import TestCase
 # Create your tests here.
 
 # FILE: ./editor/urls.py
-# editor/urls.py
+# FILE: ./editor/urls.py
 
 from django.urls import path
-from django.contrib.auth import views as auth_views
 from . import views
+from django.contrib.auth import views as auth_views
 
 urlpatterns = [
     path('register/', views.register, name='register'),
@@ -1581,17 +1904,19 @@ urlpatterns = [
     path('document/<int:pk>/edit/', views.document_edit, name='document_edit'),
     path('document/<int:pk>/delete/', views.document_delete, name='document_delete'),
     path('document/<int:pk>/get_comments/', views.get_comments, name='get_comments'),
-
-
+    
+    # --- Version Control URL Patterns ---
+    path('document/<int:pk>/save_version/', views.save_version, name='save_version'),
+    path('document/<int:pk>/list_versions/', views.list_versions, name='list_versions'),
+    path('document/<int:pk>/restore_version/', views.restore_version, name='restore_version'),
 ]
-
 # FILE: ./editor/views.py
-# editor/views.py
+# FILE: ./editor/views.py
 
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import login
 from .forms import RegisterForm, DocumentForm, CollaboratorsForm 
-from .models import Document, Comment
+from .models import Document, Comment, DocumentVersion  # Import DocumentVersion
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse, HttpResponseBadRequest
 from django.views.decorators.csrf import csrf_exempt
@@ -1678,3 +2003,61 @@ def get_comments(request, pk):
             'username': comment.user.username,
         })
     return JsonResponse({'comments': comments_list})
+
+# --- Version Control View Functions ---
+
+@csrf_exempt
+@login_required
+def save_version(request, pk):
+    if request.method == 'POST':
+        document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+        try:
+            data = json.loads(request.body)
+            content = data.get('content')
+            if content:
+                # Create a new DocumentVersion
+                DocumentVersion.objects.create(
+                    document=document,
+                    content=json.dumps(content),
+                    user=request.user
+                )
+                return JsonResponse({'status': 'success'})
+            else:
+                return HttpResponseBadRequest('No content provided.')
+        except json.JSONDecodeError:
+            return HttpResponseBadRequest('Invalid JSON.')
+    else:
+        return HttpResponseBadRequest('Invalid request method.')
+
+@login_required
+def list_versions(request, pk):
+    document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+    versions = document.versions.order_by('-created_at').select_related('user')
+    versions_list = []
+    for version in versions:
+        versions_list.append({
+            'id': version.id,
+            'username': version.user.username if version.user else 'Unknown',
+            'created_at': version.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+        })
+    return JsonResponse({'versions': versions_list})
+
+@csrf_exempt
+@login_required
+def restore_version(request, pk):
+    if request.method == 'POST':
+        document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+        try:
+            data = json.loads(request.body)
+            version_id = data.get('version_id')
+            if version_id:
+                version = get_object_or_404(DocumentVersion, pk=version_id, document=document)
+                document.content = version.content
+                document.save()
+                return JsonResponse({'status': 'success'})
+            else:
+                return HttpResponseBadRequest('No version ID provided.')
+        except json.JSONDecodeError:
+            return HttpResponseBadRequest('Invalid JSON.')
+    else:
+        return HttpResponseBadRequest('Invalid request method.')

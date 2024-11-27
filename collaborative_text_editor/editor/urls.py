@@ -1,8 +1,8 @@
-# editor/urls.py
+# FILE: ./editor/urls.py
 
 from django.urls import path
-from django.contrib.auth import views as auth_views
 from . import views
+from django.contrib.auth import views as auth_views
 
 urlpatterns = [
     path('register/', views.register, name='register'),
@@ -13,6 +13,9 @@ urlpatterns = [
     path('document/<int:pk>/edit/', views.document_edit, name='document_edit'),
     path('document/<int:pk>/delete/', views.document_delete, name='document_delete'),
     path('document/<int:pk>/get_comments/', views.get_comments, name='get_comments'),
-
-
+    
+    # --- Version Control URL Patterns ---
+    path('document/<int:pk>/save_version/', views.save_version, name='save_version'),
+    path('document/<int:pk>/list_versions/', views.list_versions, name='list_versions'),
+    path('document/<int:pk>/restore_version/', views.restore_version, name='restore_version'),
 ]

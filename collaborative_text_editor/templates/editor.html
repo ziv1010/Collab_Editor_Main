@@ -1,4 +1,4 @@
-<!-- /Users/ziv/Desktop/Collab_Text_2/collaborative_text_editor/templates/editor.html -->
+<!-- FILE: ./templates/editor.html -->
 
 {% extends 'base.html' %}
 
@@ -197,13 +197,21 @@
     <div class="row">
         <!-- Editor Column -->
         <div class="col-md-9">
-            <!-- Document Title and Sharing Options -->
+            <!-- Document Title and Action Buttons -->
             <div class="d-flex justify-content-between align-items-center mb-4">
                 <h4 contenteditable="true" id="document-title" class="mb-0">{{ document.title }}</h4>
-                <!-- Share Button -->
-                <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#collaboratorsModal">
-                    Share
-                </button>
+                <div>
+                    <!-- Save Button -->
+                    <button type="button" class="btn btn-primary" id="save-button">Save</button>
+                    <!-- Version History Button -->
+                    <button type="button" class="btn btn-secondary" data-toggle="modal" data-target="#versionHistoryModal">
+                        Version History
+                    </button>
+                    <!-- Share Button -->
+                    <button type="button" class="btn btn-outline-primary" data-toggle="modal" data-target="#collaboratorsModal">
+                        Share
+                    </button>
+                </div>
             </div>
 
             <!-- Editor Container -->
@@ -262,6 +270,28 @@
       </div>
     </div>
 </div>
+
+<!-- Version History Modal -->
+<div class="modal fade" id="versionHistoryModal" tabindex="-1" aria-labelledby="versionHistoryModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Version History</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <ul id="version-list" class="list-group">
+                    <!-- Versions will be loaded here -->
+                </ul>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_script %}
@@ -269,6 +299,9 @@
 <script src="https://cdn.quilljs.com/1.3.6/quill.js"></script>
 <!-- Include quill-cursors script -->
 <script src="https://cdn.jsdelivr.net/npm/quill-cursors@3.0.0/dist/quill-cursors.min.js"></script>
+<!-- Include Bootstrap JS (for modals) -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@4.5.3/dist/js/bootstrap.bundle.min.js"></script>
 
 <!-- Initialize Quill editor and WebSocket -->
 <script>
@@ -674,5 +707,90 @@
                 });
             });
         });
+
+    // --- Save Button Functionality ---
+    document.getElementById('save-button').addEventListener('click', function() {
+        // Get the current content of the editor
+        const content = quill.getContents();
+
+        // Send an AJAX POST request to save the version
+        fetch("{% url 'save_version' document.pk %}", {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token }}'
+            },
+            body: JSON.stringify({
+                'content': content
+            })
+        })
+        .then(response => {
+            if (response.ok) {
+                alert('Document saved successfully.');
+            } else {
+                alert('Error saving document.');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error saving document.');
+        });
+    });
+
+    // --- Version History Functionality ---
+
+    // Function to load versions
+    function loadVersions() {
+        fetch("{% url 'list_versions' document.pk %}")
+            .then(response => response.json())
+            .then(data => {
+                const versionList = document.getElementById('version-list');
+                versionList.innerHTML = '';
+                data.versions.forEach(version => {
+                    const listItem = document.createElement('li');
+                    listItem.className = 'list-group-item d-flex justify-content-between align-items-center';
+                    listItem.textContent = `Saved by ${version.username} at ${version.created_at}`;
+                    const restoreButton = document.createElement('button');
+                    restoreButton.className = 'btn btn-sm btn-outline-primary';
+                    restoreButton.textContent = 'Restore';
+                    restoreButton.addEventListener('click', function() {
+                        restoreVersion(version.id);
+                    });
+                    listItem.appendChild(restoreButton);
+                    versionList.appendChild(listItem);
+                });
+            });
+    }
+
+    // Function to restore a version
+    function restoreVersion(versionId) {
+        if (confirm('Are you sure you want to restore this version? This will overwrite the current document content.')) {
+            fetch("{% url 'restore_version' document.pk %}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': '{{ csrf_token }}'
+                },
+                body: JSON.stringify({
+                    'version_id': versionId
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    // Reload the page to reflect the restored content
+                    window.location.reload();
+                } else {
+                    alert('Error restoring version.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error restoring version.');
+            });
+        }
+    }
+
+    // Load versions when the modal is opened
+    $('#versionHistoryModal').on('show.bs.modal', loadVersions);
 </script>
 {% endblock %}
