@@ -3,76 +3,157 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Collaborative Text Editor</title>
+    <title>CollabDocs</title>
     <style>
         body, html {
             margin: 0;
             padding: 0;
             background-color: #1e1e1e;
             color: #e6e6e6;
+            font-family: 'Fira Code', monospace;
         }
         
         header {
             background-color: #2d2d2d;
-            padding: 1rem 2rem;
+            padding: 0.8rem 2rem;
             border-bottom: 1px solid #444;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
         
-        header h1 {
+        .brand-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .brand-name {
             color: #61dafb;
             margin: 0;
             font-size: 1.5rem;
-            font-family: 'Fira Code', monospace;
-        }
-        
-        header p {
-            margin: 0.5rem 0 0 0;
-            color: #e6e6e6;
-        }
-        
-        header a, header button {
-            color: #61dafb;
+            font-weight: 600;
             text-decoration: none;
         }
         
-        header button {
+        .brand-name:hover {
+            color: #4fa8c7;
+        }
+
+        .user-section {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .user-avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: #61dafb;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+        }
+        
+        .user-avatar:hover {
+            transform: scale(1.1);
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #e6e6e6;
+            font-size: 0.9rem;
+        }
+        
+        .user-info span {
+            color: #6a9955;
+        }
+        
+        .auth-links a, .logout-btn {
+            color: #61dafb;
+            text-decoration: none;
             background: none;
             border: none;
             padding: 0;
-            margin: 0;
             font: inherit;
             cursor: pointer;
+            font-size: 0.9rem;
         }
         
-        header a:hover, header button:hover {
+        .auth-links a:hover, .logout-btn:hover {
             color: #4fa8c7;
             text-decoration: underline;
         }
-        
+
         main {
             min-height: calc(100vh - 60px);
         }
+
+        .separator {
+            color: #666;
+            margin: 0 0.5rem;
+        }
     </style>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     <header>
-        <h1>CollabDocs</h1>
-        {% if user.is_authenticated %}
-        <p>
-            Welcome, {{ user.username }} |
-            <form action="{% url 'logout' %}" method="post" style="display: inline;">
-                {% csrf_token %}
-                <button type="submit">Logout</button>
-            </form>
-        </p>
-        {% else %}
-        <p><a href="{% url 'login' %}">Login</a> | <a href="{% url 'register' %}">Register</a></p>
-        {% endif %}
+        <div class="brand-section">
+            <a href="{% url 'document_list' %}" class="brand-name">CollabDocs</a>
+            {% if user.is_authenticated %}
+            <span style="color: #6a9955">// Your collaborative workspace</span>
+            {% endif %}
+        </div>
+        <div class="user-section">
+            {% if user.is_authenticated %}
+                <div class="user-info">
+                    <div class="user-avatar" id="userAvatar"></div>
+                    <span>{{ user.username }}</span>
+                    <div class="separator">|</div>
+                    <form action="{% url 'logout' %}" method="post" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="logout-btn">logout()</button>
+                    </form>
+                </div>
+            {% else %}
+                <div class="auth-links">
+                    <a href="{% url 'login' %}">login()</a>
+                    <div class="separator" style="display: inline;">|</div>
+                    <a href="{% url 'register' %}">register()</a>
+                </div>
+            {% endif %}
+        </div>
     </header>
     <main>
         {% block content %}{% endblock %}
     </main>
+    {% if user.is_authenticated %}
+    <script>
+        // List of fun coding-related emojis
+        const codeEmojis = ['👩‍💻', '👨‍💻', '🤖', '💻', '🚀', '⚡', '🔮', '🎮', '🌟', '🦄', '🎯', '🔧', '⚙️', '🧠'];
+        
+        // Function to get a random emoji
+        function getRandomEmoji() {
+            return codeEmojis[Math.floor(Math.random() * codeEmojis.length)];
+        }
+        
+        // Set random emoji for user avatar
+        document.getElementById('userAvatar').innerText = getRandomEmoji();
+        
+        // Store the emoji in session storage so it persists during the session
+        if (!sessionStorage.getItem('userEmoji')) {
+            sessionStorage.setItem('userEmoji', getRandomEmoji());
+        }
+        document.getElementById('userAvatar').innerText = sessionStorage.getItem('userEmoji');
+    </script>
+    {% endif %}
     {% block extra_script %}{% endblock %}
 </body>
 </html>
