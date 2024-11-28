@@ -1,22 +1,240 @@
 {% extends 'base.html' %}
 
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+    .dashboard-container {
+        min-height: calc(100vh - 180px);
+        padding: 2rem;
+        background-color: #1e1e1e;
+        font-family: 'Fira Code', monospace;
+    }
+
+    .dashboard-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2rem;
+        padding: 1.5rem;
+        background: #2d2d2d;
+        border-radius: 8px;
+        border: 1px solid #444;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.2);
+    }
+
+    .dashboard-title {
+        color: #61dafb;
+        font-size: 1.8rem;
+        margin: 0;
+        position: relative;
+        display: inline-block;
+    }
+
+    .dashboard-title::before {
+        content: 'class';
+        position: absolute;
+        top: -1.2rem;
+        left: 0;
+        font-size: 0.9rem;
+        color: #569cd6;
+    }
+
+    .documents-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.5rem;
+        margin-top: 1.5rem;
+    }
+
+    .document-card {
+        background: #2d2d2d;
+        border-radius: 8px;
+        overflow: hidden;
+        transition: all 0.3s ease;
+        position: relative;
+        border: 1px solid #444;
+    }
+
+    .document-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 5px 15px rgba(97, 218, 251, 0.1);
+        border-color: #61dafb;
+    }
+
+    .document-card::before {
+        content: '• • •';
+        position: absolute;
+        top: 0;
+        left: 0;
+        padding: 8px;
+        color: #666;
+        font-size: 14px;
+        background: #252525;
+        width: 100%;
+    }
+
+    .document-content {
+        padding: 2rem 1.5rem 1.5rem;
+    }
+
+    .document-title {
+        color: #e6e6e6;
+        font-size: 1.2rem;
+        font-weight: 500;
+        margin-bottom: 1rem;
+        display: block;
+        text-decoration: none;
+    }
+
+    .document-title:hover {
+        color: #61dafb;
+    }
+
+    .document-stats {
+        display: flex;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+        color: #6a9955;
+    }
+
+    .stat-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .document-actions {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 1rem 1.5rem;
+        background: #252525;
+        border-top: 1px solid #444;
+    }
+
+    .btn-create {
+        background: #61dafb;
+        color: #1e1e1e;
+        border: none;
+        padding: 0.75rem 1.5rem;
+        border-radius: 4px;
+        font-weight: 500;
+        font-family: 'Fira Code', monospace;
+        transition: all 0.3s ease;
+    }
+
+    .btn-create:hover {
+        background: #4fa8c7;
+        transform: translateY(-2px);
+        text-decoration: none;
+        color: #1e1e1e;
+    }
+
+    .btn-edit {
+        color: #61dafb;
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
+    }
+
+    .btn-edit:hover {
+        color: #4fa8c7;
+        text-decoration: none;
+    }
+
+    .btn-delete {
+        background: transparent;
+        color: #888;
+        border: none;
+        font-size: 0.9rem;
+        transition: all 0.2s;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-family: 'Fira Code', monospace;
+    }
+
+    .btn-delete:hover {
+        background: #ff6b6b20;
+        color: #ff6b6b;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 4rem 2rem;
+        background: #2d2d2d;
+        border-radius: 8px;
+        border: 1px solid #444;
+    }
+
+    .empty-state h3 {
+        color: #61dafb;
+        font-size: 1.5rem;
+        margin-bottom: 1rem;
+    }
+
+    .empty-state p {
+        color: #6a9955;
+    }
+
+    .code-comment {
+        color: #6a9955;
+        font-size: 0.9rem;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
-    <h2>Your Documents</h2>
-    <ul class="list-group mt-3">
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h2 class="dashboard-title">Workspace</h2>
+        <a href="{% url 'document_create' %}" class="btn-create">
+            new Document()
+        </a>
+    </div>
+
+    {% if documents %}
+    <div class="documents-grid">
         {% for document in documents %}
-            <li class="list-group-item d-flex justify-content-between align-items-center">
-                <a href="{% url 'document_edit' document.pk %}">{{ document.title }}</a>
-                <!-- Delete Button -->
+        <div class="document-card">
+            <div class="document-content">
+                <a href="{% url 'document_edit' document.pk %}" class="document-title">
+                    {{ document.title }}
+                </a>
+                <div class="document-stats">
+                    <span class="stat-item">
+                        <i class="fas fa-users"></i>
+                        // {{ document.collaborators.count }} collaborators
+                    </span>
+                    <span class="stat-item">
+                        <i class="fas fa-clock"></i>
+                        // {{ document.updated_at|date:"M d, Y" }}
+                    </span>
+                </div>
+            </div>
+            <div class="document-actions">
+                <a href="{% url 'document_edit' document.pk %}" class="btn-edit">
+                    edit.open()
+                </a>
                 <form action="{% url 'document_delete' document.pk %}" method="post" style="margin: 0;">
                     {% csrf_token %}
-                    <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this document?');">Delete</button>
+                    <button type="submit" class="btn-delete" onclick="return confirm('Are you sure you want to delete this document?');">
+                        delete()
+                    </button>
                 </form>
-            </li>
-        {% empty %}
-            <li class="list-group-item">No documents yet.</li>
+            </div>
+        </div>
         {% endfor %}
-    </ul>
-    <a href="{% url 'document_create' %}" class="btn btn-success mt-3">Create New Document</a>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <h3>// Workspace is empty</h3>
+        <p>Initialize your first document to begin</p>
+    </div>
+    {% endif %}
 </div>
+{% endblock %}
+
+{% block extra_script %}
+<script src="https://kit.fontawesome.com/your-font-awesome-kit.js"></script>
 {% endblock %}

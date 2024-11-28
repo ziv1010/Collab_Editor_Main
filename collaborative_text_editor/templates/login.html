@@ -1,10 +1,163 @@
 {% extends 'base.html' %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/prismjs@1.24.1/themes/prism-tomorrow.css">
+<style>
+    .auth-container {
+        min-height: calc(100vh - 180px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #1e1e1e;
+        font-family: 'Fira Code', 'Consolas', monospace;
+    }
+
+    .auth-box {
+        background: #2d2d2d;
+        padding: 2.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        width: 100%;
+        max-width: 400px;
+        position: relative;
+        border: 1px solid #444;
+    }
+
+    .auth-box::before {
+        content: '• • •';
+        position: absolute;
+        top: 0;
+        left: 0;
+        padding: 8px;
+        color: #666;
+        font-size: 14px;
+        background: #252525;
+        width: 100%;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .auth-box h2 {
+        color: #61dafb;
+        margin: 1.5rem 0;
+        font-weight: 600;
+        text-align: center;
+        font-size: 1.8rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.2rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #e6e6e6;
+        font-weight: 500;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background: #1e1e1e;
+        border: 1px solid #444;
+        border-radius: 4px;
+        font-size: 1rem;
+        color: #e6e6e6;
+        font-family: 'Fira Code', 'Consolas', monospace;
+    }
+
+    .form-group input:focus {
+        border-color: #61dafb;
+        box-shadow: 0 0 0 2px rgba(97, 218, 251, 0.2);
+        outline: none;
+    }
+
+    .btn-login {
+        width: 100%;
+        padding: 0.75rem;
+        background: #61dafb;
+        color: #1e1e1e;
+        border: none;
+        border-radius: 4px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-family: 'Fira Code', 'Consolas', monospace;
+    }
+
+    .btn-login:hover {
+        background: #4fa8c7;
+        transform: translateY(-1px);
+    }
+
+    .code-comment {
+        color: #6a9955;
+        font-size: 0.9rem;
+        margin: 0.5rem 0;
+    }
+
+    .auth-footer {
+        text-align: center;
+        margin-top: 1.5rem;
+        color: #888;
+    }
+
+    .auth-footer a {
+        color: #61dafb;
+        text-decoration: none;
+    }
+
+    .auth-footer a:hover {
+        text-decoration: underline;
+    }
+
+    .errorlist {
+        color: #f14668;
+        list-style: none;
+        padding: 0;
+        margin: 0.5rem 0;
+        font-size: 0.875rem;
+    }
+
+    .syntax-decorator {
+        color: #569cd6;
+        font-family: 'Fira Code', 'Consolas', monospace;
+    }
+
+    .terminal-prompt::before {
+        content: "$ ";
+        color: #61dafb;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<h2>Login</h2>
-<form method="post">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit">Login</button>
-</form>
+<div class="auth-container">
+    <div class="auth-box">
+        <h2><span class="syntax-decorator">class</span> Login</h2>
+        <div class="code-comment">// Enter your credentials to continue</div>
+        <form method="post" class="terminal-prompt">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}
+                <ul class="errorlist">
+                    {% for error in field.errors %}
+                    <li>Error: {{ error }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn-login">authenticate()</button>
+        </form>
+        <div class="auth-footer">
+            <span class="code-comment">// New developer?</span><br>
+            <a href="{% url 'register' %}">register.createAccount()</a>
+        </div>
+    </div>
+</div>
 {% endblock %}
