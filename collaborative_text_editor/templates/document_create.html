@@ -1,12 +1,154 @@
 {% extends 'base.html' %}
 
+{% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+    .create-container {
+        min-height: calc(100vh - 180px);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background-color: #1e1e1e;
+        font-family: 'Fira Code', 'Consolas', monospace;
+        padding: 2rem;
+    }
+
+    .create-box {
+        background: #2d2d2d;
+        padding: 2.5rem;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
+        width: 100%;
+        max-width: 600px;
+        position: relative;
+        border: 1px solid #444;
+    }
+
+    .create-box::before {
+        content: '• • •';
+        position: absolute;
+        top: 0;
+        left: 0;
+        padding: 8px;
+        color: #666;
+        font-size: 14px;
+        background: #252525;
+        width: 100%;
+        border-radius: 8px 8px 0 0;
+    }
+
+    .create-box h2 {
+        color: #61dafb;
+        margin: 1.5rem 0;
+        font-weight: 600;
+        text-align: center;
+        font-size: 1.8rem;
+    }
+
+    .form-group {
+        margin-bottom: 1.5rem;
+    }
+
+    .form-group label {
+        display: block;
+        margin-bottom: 0.5rem;
+        color: #e6e6e6;
+        font-weight: 500;
+    }
+
+    .form-group input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        background: #1e1e1e;
+        border: 1px solid #444;
+        border-radius: 4px;
+        font-size: 1rem;
+        color: #e6e6e6;
+        font-family: 'Fira Code', 'Consolas', monospace;
+    }
+
+    .form-group input:focus {
+        border-color: #61dafb;
+        box-shadow: 0 0 0 2px rgba(97, 218, 251, 0.2);
+        outline: none;
+    }
+
+    .collaborators-section {
+        background: #252525;
+        padding: 1rem;
+        border-radius: 4px;
+        margin-top: 1rem;
+    }
+
+    .collaborators-section label {
+        color: #61dafb;
+        margin-bottom: 1rem;
+    }
+
+    .collaborators-list {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+        gap: 0.5rem;
+    }
+
+    .collaborator-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: #e6e6e6;
+    }
+
+    .btn-create {
+        width: 100%;
+        padding: 0.75rem;
+        background: #61dafb;
+        color: #1e1e1e;
+        border: none;
+        border-radius: 4px;
+        font-size: 1rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-family: 'Fira Code', 'Consolas', monospace;
+    }
+
+    .btn-create:hover {
+        background: #4fa8c7;
+        transform: translateY(-1px);
+    }
+
+    .code-comment {
+        color: #6a9955;
+        font-size: 0.9rem;
+        margin: 0.5rem 0;
+    }
+
+    .syntax-decorator {
+        color: #569cd6;
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container mt-5">
-    <h2>Create New Document</h2>
-    <form method="post" class="mt-4">
-        {% csrf_token %}
-        {{ form.as_p }}
-        <button type="submit" class="btn btn-primary">Create</button>
-    </form>
+<div class="create-container">
+    <div class="create-box">
+        <h2><span class="syntax-decorator">class</span> NewDocument</h2>
+        <div class="code-comment">// Initialize new collaborative document</div>
+        <form method="post" class="terminal-prompt">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="{{ form.title.id_for_label }}">const documentTitle = </label>
+                {{ form.title }}
+            </div>
+            <div class="collaborators-section">
+                <label>addCollaborators() {</label>
+                <div class="collaborators-list">
+                    {{ form.collaborators }}
+                </div>
+                <div class="code-comment">}</div>
+            </div>
+            <button type="submit" class="btn-create">createDocument()</button>
+        </form>
+    </div>
 </div>
 {% endblock %}

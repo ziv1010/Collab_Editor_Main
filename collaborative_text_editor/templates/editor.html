@@ -3,192 +3,251 @@
 {% extends 'base.html' %}
 
 {% block extra_head %}
-<!-- Include Quill stylesheet -->
 <link href="https://cdn.quilljs.com/1.3.6/quill.snow.css" rel="stylesheet">
-
-<!-- Custom CSS for comments and cursors -->
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-    /* Apply styles to elements with 'data-comment-id' attribute */
-    span[data-comment-id] {
-        background-color: #ffff00; /* Light yellow background */
-        cursor: pointer;
-        transition: background-color 0.2s ease;
+    body {
+        background-color: #1a1a1a;
+        color: #e6e6e6;
+        font-family: 'Fira Code', 'Consolas', monospace;
     }
 
-    /* Darker highlight when hovering over comment in sidebar */
-    span[data-comment-id].highlighted {
-        background-color: #ffd700; /* Gold color */
+    .editor-container {
+        padding: 2rem;
     }
 
-    /* Light blue highlight when clicking on a comment */
-    span[data-comment-id].active-highlight {
-        background-color: #add8e6; /* Light blue */
-    }
-
-    /* Comments Sidebar Styling */
-    #comments-container {
-        background-color: #f9f9f9;
-        border-left: 1px solid #ccc;
-        padding: 15px;
-        overflow-y: auto;
-        height: calc(100vh - 100px);
-    }
-
-    .comment {
-        background-color: #f1f1f1;
-        border-radius: 4px;
-        padding: 10px;
-        margin-bottom: 10px;
-        transition: background-color 0.2s ease;
-        cursor: pointer;
-    }
-
-    .comment:hover {
-        background-color: #e6f7ff;
-    }
-
-    .comment .content {
-        margin-bottom: 5px;
-    }
-
-    .comment .meta {
-        font-size: 12px;
-        color: #666;
-    }
-
-    .comment .resolve-btn {
-        font-size: 12px;
-        color: #dc3545;
-        cursor: pointer;
-        text-decoration: underline;
-    }
-
-    .comment .resolve-btn:hover {
-        color: #a71d2a;
-    }
-
-    /* Active Users Styling */
-    #active-users {
-        margin-top: 20px;
-    }
-
-    #active-users-list {
+    .editor-header {
+        background: #252525;
+        padding: 1.5rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+        border: 1px solid #333;
         display: flex;
-        flex-wrap: wrap;
-    }
-
-    #active-users-list .user-item {
-        display: flex;
+        justify-content: space-between;
         align-items: center;
-        margin-right: 15px;
-        margin-bottom: 10px;
     }
 
-    #active-users-list .avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background-color: #007bff;
-        color: #fff;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: bold;
-        margin-right: 10px;
-    }
-
-    #active-users-list .username {
-        font-size: 14px;
-        color: #333;
-    }
-
-    /* General Styling Enhancements */
-
-    /* Navigation Bar */
-    .navbar-brand {
-        font-weight: bold;
+    #document-title {
+        color: #4ec9b0;
         font-size: 1.5rem;
-    }
-
-    .navbar-text a {
-        margin-left: 10px;
-        color: #007bff;
-        text-decoration: none;
-    }
-
-    .navbar-text a:hover {
-        text-decoration: underline;
-    }
-
-    /* Editor Container */
-    #editor-container {
-        height: 500px;
-        border: 1px solid #ccc;
-        background-color: #fff;
+        border: none;
+        background: transparent;
+        padding: 0.5rem;
         border-radius: 4px;
+        font-family: 'Fira Code', 'Consolas', monospace;
     }
 
-    /* Footer */
-    footer {
-        background-color: #fff;
-        padding: 15px 20px;
-        border-top: 1px solid #e0e0e0;
-        text-align: center;
-        position: fixed;
-        width: 100%;
-        bottom: 0;
+    #document-title:focus {
+        outline: none;
+        background: #2d2d2d;
     }
 
-    /* Buttons */
-    .btn-success {
-        background-color: #28a745;
-        border-color: #28a745;
-    }
-
-    .btn-success:hover {
-        background-color: #218838;
-        border-color: #1e7e34;
+    .btn {
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        font-family: 'Fira Code', 'Consolas', monospace;
+        border: none;
+        cursor: pointer;
+        transition: all 0.2s ease;
     }
 
     .btn-primary {
-        background-color: #007bff;
-        border-color: #007bff;
+        background: #4ec9b0;
+        color: #1a1a1a;
     }
 
     .btn-primary:hover {
-        background-color: #0069d9;
-        border-color: #0062cc;
+        background: #3da892;
+        transform: translateY(-1px);
     }
 
-    .btn-danger {
-        background-color: #dc3545;
-        border-color: #dc3545;
+    .btn-secondary {
+        background: #252525;
+        color: #4ec9b0;
+        border: 1px solid #4ec9b0;
     }
 
-    .btn-danger:hover {
-        background-color: #c82333;
-        border-color: #bd2130;
+    .btn-secondary:hover {
+        background: #2d2d2d;
+        color: #3da892;
+        border-color: #3da892;
     }
 
-    .btn-outline-primary {
-        color: #007bff;
-        border-color: #007bff;
+    .editor-main {
+        display: grid;
+        grid-template-columns: 1fr 300px;
+        gap: 1.5rem;
     }
 
-    .btn-outline-primary:hover {
-        background-color: #007bff;
-        color: #fff;
+    #editor-container {
+        background: #252525;
+        border-radius: 8px;
+        border: 1px solid #333;
+        height: calc(100vh - 250px);
     }
 
-    .btn-link {
-        color: #007bff;
+    /* Quill Editor Styling */
+    .ql-toolbar.ql-snow {
+        background: #2d2d2d;
+        border-color: #333;
+        border-radius: 8px 8px 0 0;
+        border-bottom: 1px solid #333;
     }
 
-    .btn-link:hover {
-        color: #0056b3;
-        text-decoration: underline;
+    .ql-container.ql-snow {
+        border-color: #333;
+        border-radius: 0 0 8px 8px;
+        background: #252525;
+        color: #e6e6e6;
     }
-    
+
+    .ql-editor {
+        color: #e6e6e6;
+    }
+
+    .ql-snow .ql-stroke {
+        stroke: #808080;
+    }
+
+    .ql-snow .ql-fill {
+        fill: #808080;
+    }
+
+    .ql-snow .ql-picker {
+        color: #808080;
+    }
+
+    .ql-snow .ql-picker-options {
+        background-color: #252525;
+        border-color: #333;
+    }
+
+    .ql-snow .ql-picker.ql-expanded .ql-picker-options {
+        border-color: #333;
+    }
+
+    #comments-container {
+        background: #252525;
+        border-radius: 8px;
+        border: 1px solid #333;
+        padding: 1.5rem;
+        height: calc(100vh - 250px);
+        overflow-y: auto;
+    }
+
+    .comment {
+        background: #2d2d2d;
+        border-radius: 4px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+        border: 1px solid #333;
+        transition: all 0.2s ease;
+    }
+
+    .comment:hover {
+        border-color: #4ec9b0;
+        transform: translateY(-1px);
+    }
+
+    .comment .content {
+        color: #e6e6e6;
+    }
+
+    .comment .meta {
+        color: #808080;
+        font-size: 0.875rem;
+        margin-top: 0.5rem;
+    }
+
+    .comment .resolve-btn {
+        color: #4ec9b0;
+        font-size: 0.875rem;
+        cursor: pointer;
+        margin-top: 0.5rem;
+    }
+
+    .comment .resolve-btn:hover {
+        color: #3da892;
+    }
+
+    /* Highlighted text styling */
+    .ql-editor span[data-comment-id] {
+        background-color: rgba(78, 201, 176, 0.1);
+        border-bottom: 1px solid #4ec9b0;
+    }
+
+    .ql-editor span[data-comment-id].highlighted {
+        background-color: rgba(78, 201, 176, 0.2);
+    }
+
+    .ql-editor span[data-comment-id].active-highlight {
+        background-color: rgba(78, 201, 176, 0.3);
+    }
+
+    /* Modal styling */
+    .modal-content {
+        background-color: #252525;
+        border: 1px solid #333;
+    }
+
+    .modal-header {
+        border-bottom: 1px solid #333;
+        color: #e6e6e6;
+    }
+
+    .modal-footer {
+        border-top: 1px solid #333;
+    }
+
+    .close {
+        color: #808080;
+    }
+
+    .close:hover {
+        color: #e6e6e6;
+    }
+
+    /* Version history list */
+    .list-group-item {
+        background-color: #2d2d2d;
+        border: 1px solid #333;
+        color: #e6e6e6;
+        margin-bottom: 0.5rem;
+        border-radius: 4px;
+    }
+
+    .list-group-item:hover {
+        background-color: #333;
+    }
+
+    /* Active users section */
+    #active-users {
+        margin-top: 1.5rem;
+        background: #252525;
+        padding: 1rem;
+        border-radius: 8px;
+        border: 1px solid #333;
+    }
+
+    .user-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+        color: #e6e6e6;
+    }
+
+    .avatar {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        background: #4ec9b0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1a1a1a;
+        font-weight: bold;
+    }
 </style>
 {% endblock %}
 
