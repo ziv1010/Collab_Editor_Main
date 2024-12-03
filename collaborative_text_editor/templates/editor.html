@@ -367,6 +367,31 @@
         </div>
     </div>
 </div>
+
+<!-- Version Preview Modal -->
+<div class="modal fade" id="versionPreviewModal" tabindex="-1" aria-labelledby="versionPreviewModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Version Preview</h5>
+                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="version-meta-info mb-3">
+                    <div class="version-description h6"></div>
+                    <small class="text-muted version-details"></small>
+                </div>
+                <div id="preview-editor-container" style="height: 400px;"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" id="confirm-restore-btn">Restore This Version</button>
+                <button type="button" class="btn btn-outline-secondary" data-dismiss="modal">Cancel</button>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_script %}
@@ -806,6 +831,7 @@
             .then(response => {
                 if (response.ok) {
                     alert('Document saved successfully.');
+                    loadVersions();  // Reload the version list after successful save
                 } else {
                     alert('Error saving document.');
                 }
@@ -818,6 +844,15 @@
     });
 
     // --- Version History Functionality ---
+
+    // Initialize preview editor
+    const previewQuill = new Quill('#preview-editor-container', {
+        theme: 'snow',
+        modules: {
+            toolbar: false
+        },
+        readOnly: true
+    });
 
     // Function to load versions
     function loadVersions() {
@@ -838,20 +873,77 @@
                         <div class="version-meta">Saved by ${version.username} at ${version.created_at}</div>
                     `;
                     
-                    // Create restore button
-                    const restoreButton = document.createElement('button');
-                    restoreButton.className = 'btn btn-sm btn-outline-primary';
-                    restoreButton.textContent = 'Restore';
-                    restoreButton.addEventListener('click', function() {
-                        restoreVersion(version.id);
+                    // Create preview button
+                    const previewButton = document.createElement('button');
+                    previewButton.className = 'btn btn-sm btn-outline-secondary mr-2';
+                    previewButton.textContent = 'Preview';
+                    previewButton.addEventListener('click', function() {
+                        showVersionPreview(version.id);
                     });
 
+                    const buttonContainer = document.createElement('div');
+                    buttonContainer.appendChild(previewButton);
+
                     listItem.appendChild(descContainer);
-                    listItem.appendChild(restoreButton);
+                    listItem.appendChild(buttonContainer);
                     versionList.appendChild(listItem);
                 });
             });
     }
+
+    // Function to show version preview
+    function showVersionPreview(versionId) {
+        fetch(`{% url 'preview_version' document.pk 0 %}`.replace('0', versionId))
+            .then(response => response.json())
+            .then(data => {
+                // Set the preview content
+                previewQuill.setContents(data.content);
+                
+                // Update meta information
+                document.querySelector('#versionPreviewModal .version-description').textContent = 
+                    data.description || 'No description';
+                document.querySelector('#versionPreviewModal .version-details').textContent = 
+                    `Saved by ${data.username} at ${data.created_at}`;
+                
+                // Store version ID for restore functionality
+                document.getElementById('confirm-restore-btn').dataset.versionId = versionId;
+                
+                // Hide version history modal and show preview modal
+                $('#versionHistoryModal').modal('hide');
+                $('#versionPreviewModal').modal('show');
+            });
+    }
+
+    // Handle restore button click in preview modal
+    document.getElementById('confirm-restore-btn').addEventListener('click', function() {
+        const versionId = this.dataset.versionId;
+        restoreVersion(versionId);
+    });
+
+    // Update modal behavior
+    $('#versionPreviewModal').on('hidden.bs.modal', function () {
+        $('#versionHistoryModal').modal('show');
+    });
+
+    // Add CSS for the preview modal
+    const style = document.createElement('style');
+    style.textContent = `
+        #preview-editor-container .ql-editor {
+            background: #252525;
+            color: #e6e6e6;
+        }
+        
+        .version-meta-info {
+            border-bottom: 1px solid #333;
+            padding-bottom: 1rem;
+        }
+    `;
+    document.head.appendChild(style);
+
+    // Load versions when the modal is opened
+    $('#versionHistoryModal').on('show.bs.modal', function() {
+        loadVersions();
+    });
 
     // Function to restore a version
     function restoreVersion(versionId) {
@@ -868,11 +960,17 @@
             })
             .then(response => {
                 if (response.ok) {
-                    // Reload the page to reflect the restored content
-                    window.location.reload();
-                } else {
-                    alert('Error restoring version.');
+                    return response.json();
                 }
+                throw new Error('Error restoring version.');
+            })
+            .then(data => {
+                // Update the editor content
+                quill.setContents(JSON.parse(data.content));
+                // Close both modals
+                $('#versionPreviewModal').modal('hide');
+                $('#versionHistoryModal').modal('hide');
+                alert('Version restored successfully.');
             })
             .catch(error => {
                 console.error('Error:', error);
@@ -880,8 +978,5 @@
             });
         }
     }
-
-    // Load versions when the modal is opened
-    $('#versionHistoryModal').on('show.bs.modal', loadVersions);
 </script>
 {% endblock %}

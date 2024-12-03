@@ -144,10 +144,24 @@ def restore_version(request, pk):
                 version = get_object_or_404(DocumentVersion, pk=version_id, document=document)
                 document.content = version.content
                 document.save()
-                return JsonResponse({'status': 'success'})
+                return JsonResponse({
+                    'status': 'success',
+                    'content': version.content  # Return the content
+                })
             else:
                 return HttpResponseBadRequest('No version ID provided.')
         except json.JSONDecodeError:
             return HttpResponseBadRequest('Invalid JSON.')
     else:
         return HttpResponseBadRequest('Invalid request method.')
+
+@login_required
+def preview_version(request, pk, version_id):
+    document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+    version = get_object_or_404(DocumentVersion, pk=version_id, document=document)
+    return JsonResponse({
+        'content': json.loads(version.content),
+        'description': version.description,
+        'created_at': version.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'username': version.user.username if version.user else 'Unknown'
+    })

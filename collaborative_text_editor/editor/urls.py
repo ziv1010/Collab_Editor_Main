@@ -18,4 +18,5 @@ urlpatterns = [
     path('document/<int:pk>/save_version/', views.save_version, name='save_version'),
     path('document/<int:pk>/list_versions/', views.list_versions, name='list_versions'),
     path('document/<int:pk>/restore_version/', views.restore_version, name='restore_version'),
+    path('document/<int:pk>/version/<int:version_id>/preview/', views.preview_version, name='preview_version'),
 ]
