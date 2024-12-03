@@ -101,11 +101,13 @@ def save_version(request, pk):
         try:
             data = json.loads(request.body)
             content = data.get('content')
+            description = data.get('description', '')  # Get description from request
             if content:
                 # Create a new DocumentVersion
                 DocumentVersion.objects.create(
                     document=document,
                     content=json.dumps(content),
+                    description=description,  # Add description
                     user=request.user
                 )
                 return JsonResponse({'status': 'success'})
@@ -126,6 +128,7 @@ def list_versions(request, pk):
             'id': version.id,
             'username': version.user.username if version.user else 'Unknown',
             'created_at': version.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'description': version.description
         })
     return JsonResponse({'versions': versions_list})
 
