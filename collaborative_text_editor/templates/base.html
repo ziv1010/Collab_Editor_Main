@@ -9,9 +9,16 @@
     <link rel="stylesheet" href="{% static 'css/styles.css' %}">
     {% endif %}
     {% block extra_head %}{% endblock %}
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
 </head>
 <body>
-    {% if request.resolver_match.url_name in 'login,register' %}
+    <div id="page-loader" class="page-loader">
+        <div class="loader-content">
+            <div class="loader-spinner"></div>
+            <div class="loader-text">Loading...</div>
+        </div>
+    </div>
+
     <style>
         body, html {
             margin: 0;
@@ -19,6 +26,7 @@
             background-color: #1e1e1e;
             color: #e6e6e6;
             font-family: 'Fira Code', monospace;
+            transition: background-color 0.3s ease;
         }
         
         header {
@@ -28,6 +36,16 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            backdrop-filter: blur(10px);
+            transition: transform 0.3s ease, background-color 0.3s ease;
+        }
+
+        /* Hide header on scroll down, show on scroll up */
+        header.header-hidden {
+            transform: translateY(-100%);
         }
         
         .brand-section {
@@ -42,74 +60,132 @@
             font-size: 1.5rem;
             font-weight: 600;
             text-decoration: none;
+            position: relative;
+            padding: 0.5rem 0;
         }
         
-        .brand-name:hover {
-            color: #4fa8c7;
-        }
-
-        .user-section {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-        }
-        
-        .user-avatar {
-            width: 32px;
-            height: 32px;
-            border-radius: 50%;
-            background: #61dafb;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 1.2rem;
-            cursor: pointer;
-            transition: transform 0.2s ease;
+        .brand-name::after {
+            content: '';
+            position: absolute;
+            width: 0;
+            height: 2px;
+            bottom: 0;
+            left: 0;
+            background-color: #61dafb;
+            transition: width 0.3s ease;
         }
         
-        .user-avatar:hover {
-            transform: scale(1.1);
+        .brand-name:hover::after {
+            width: 100%;
         }
         
-        .user-info {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            color: #e6e6e6;
-            font-size: 0.9rem;
-        }
-        
-        .user-info span {
-            color: #6a9955;
-        }
-        
-        .auth-links a, .logout-btn {
+        .auth-links a {
             color: #61dafb;
             text-decoration: none;
-            background: none;
-            border: none;
-            padding: 0;
-            font: inherit;
-            cursor: pointer;
-            font-size: 0.9rem;
+            position: relative;
+            padding: 0.5rem 1rem;
+            transition: color 0.3s ease;
+            overflow: hidden;
         }
-        
-        .auth-links a:hover, .logout-btn:hover {
+
+        .auth-links a::before {
+            content: '';
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            background: rgba(97, 218, 251, 0.1);
+            left: 0;
+            top: 0;
+            transform: translateX(-100%);
+            transition: transform 0.3s ease;
+            z-index: -1;
+            border-radius: 4px;
+        }
+
+        .auth-links a:hover::before {
+            transform: translateX(0);
+        }
+
+        .auth-links a:hover {
             color: #4fa8c7;
-            text-decoration: underline;
         }
 
-        main {
-            min-height: calc(100vh - 60px);
+        /* Add loading animation */
+        @keyframes gradient {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
         }
 
-        .separator {
-            color: #666;
-            margin: 0 0.5rem;
+        .loading {
+            background: linear-gradient(90deg, #2d2d2d, #383838, #2d2d2d);
+            background-size: 200% 100%;
+            animation: gradient 1.5s ease infinite;
+        }
+
+        /* Add subtle hover effect to all interactive elements */
+        button, a, input[type="submit"] {
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        button:hover, a:hover, input[type="submit"]:hover {
+            transform: translateY(-1px);
+        }
+
+        button:active, a:active, input[type="submit"]:active {
+            transform: translateY(0);
+        }
+
+        .page-loader {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #1e1e1e;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+            opacity: 1;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+
+        .page-loader.hidden {
+            opacity: 0;
+            visibility: hidden;
+        }
+
+        .loader-content {
+            text-align: center;
+        }
+
+        .loader-spinner {
+            width: 50px;
+            height: 50px;
+            border: 3px solid #333;
+            border-top: 3px solid #61dafb;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        .loader-text {
+            margin-top: 1rem;
+            color: #61dafb;
+            font-family: 'Fira Code', monospace;
+            animation: pulse 1.5s ease infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
     </style>
-    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
-    {% endif %}
 
     {% if request.resolver_match.url_name in 'login,register' %}
     <header>
@@ -157,5 +233,40 @@
     {% endif %}
     
     {% block extra_script %}{% endblock %}
+
+    <script>
+        // Add header hide/show on scroll
+        let lastScroll = 0;
+        const header = document.querySelector('header');
+        
+        window.addEventListener('scroll', () => {
+            const currentScroll = window.pageYOffset;
+            
+            if (currentScroll > lastScroll && currentScroll > 80) {
+                header.classList.add('header-hidden');
+            } else {
+                header.classList.remove('header-hidden');
+            }
+            
+            lastScroll = currentScroll;
+        });
+
+        // Add loading state to buttons
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('click', function() {
+                if (!this.classList.contains('no-loading')) {
+                    this.classList.add('loading');
+                    setTimeout(() => {
+                        this.classList.remove('loading');
+                    }, 1000);
+                }
+            });
+        });
+
+        window.addEventListener('load', function() {
+            const loader = document.getElementById('page-loader');
+            loader.classList.add('hidden');
+        });
+    </script>
 </body>
 </html>
