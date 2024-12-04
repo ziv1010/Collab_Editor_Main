@@ -31,11 +31,12 @@ class DocumentVersion(models.Model):
 class Comment(models.Model):
     document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name='comments')
     user = models.ForeignKey(User, on_delete=models.CASCADE)
-    # Store the range as JSON: {'index': int, 'length': int}
     range = models.JSONField()
     content = models.TextField()
+    suggested_edit = models.TextField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     resolved = models.BooleanField(default=False)
+    edit_applied = models.BooleanField(default=False)
 
     def __str__(self):
         return f'Comment by {self.user.username} on {self.document.title}'

@@ -293,6 +293,113 @@
         border-color: #3da892;
         color: #1a1a1a;
     }
+
+    .comment-modal {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.5);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 1000;
+    }
+
+    .comment-modal-content {
+        background: #252525;
+        padding: 2rem;
+        border-radius: 8px;
+        width: 90%;
+        max-width: 500px;
+        color: #e6e6e6;
+    }
+
+    .selected-text, .comment-input, .suggest-edit {
+        margin-bottom: 1rem;
+    }
+
+    .text-preview {
+        background: #1e1e1e;
+        padding: 0.5rem;
+        border-radius: 4px;
+        margin-top: 0.5rem;
+        font-family: 'Fira Code', monospace;
+    }
+
+    .comment-modal textarea {
+        width: 100%;
+        background: #1e1e1e;
+        border: 1px solid #444;
+        color: #e6e6e6;
+        padding: 0.5rem;
+        border-radius: 4px;
+        font-family: 'Fira Code', monospace;
+    }
+
+    .modal-buttons {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1rem;
+    }
+
+    .modal-buttons button {
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-family: 'Fira Code', monospace;
+    }
+
+    .btn-submit {
+        background: #61dafb;
+        color: #1e1e1e;
+        border: none;
+    }
+
+    .btn-cancel {
+        background: transparent;
+        color: #e6e6e6;
+        border: 1px solid #444;
+    }
+
+    .suggest-edit {
+        margin-top: 1rem;
+    }
+
+    .suggest-edit label {
+        display: block;
+        margin-bottom: 0.5rem;
+    }
+
+    #edit-container {
+        margin-top: 0.5rem;
+        padding: 0.5rem;
+        background: #2d2d2d;
+        border-radius: 4px;
+    }
+
+    #edit-container label {
+        color: #808080;
+        font-size: 0.875rem;
+    }
+
+    #suggested-edit {
+        margin-top: 0.5rem;
+        width: 100%;
+        background: #1e1e1e;
+        border: 1px solid #444;
+        color: #e6e6e6;
+        padding: 0.5rem;
+        border-radius: 4px;
+        font-family: 'Fira Code', monospace;
+    }
+
+    #suggested-edit:focus {
+        border-color: #4ec9b0;
+        outline: none;
+    }
 </style>
 {% endblock %}
 
@@ -481,28 +588,78 @@
                     'comment': function() {
                         var range = quill.getSelection();
                         if (range && range.length > 0) {
-                            var commentContent = prompt('Enter your comment:');
-                            if (commentContent) {
-                                // Send the comment to the server
-                                var message = JSON.stringify({
-                                    'type': 'comment',
-                                    'comment': {
-                                        'range': range,
-                                        'content': commentContent
-                                    }
-                                });
-                                socket.send(message);
+                            const selectedText = quill.getText(range.index, range.length);
+                            
+                            // Create modal for comment input
+                            const modal = document.createElement('div');
+                            modal.className = 'comment-modal';
+                            modal.innerHTML = `
+                                <div class="comment-modal-content">
+                                    <h3>Add Comment</h3>
+                                    <div class="selected-text">
+                                        <label>Selected Text:</label>
+                                        <div class="text-preview">${selectedText}</div>
+                                    </div>
+                                    <div class="comment-input">
+                                        <label>Comment:</label>
+                                        <textarea id="comment-text" rows="3"></textarea>
+                                    </div>
+                                    <div class="suggest-edit">
+                                        <label>
+                                            <input type="checkbox" id="suggest-edit-toggle">
+                                            Suggest an edit
+                                        </label>
+                                        <div id="edit-container" style="display: none;">
+                                            <label>Replacement text:</label>
+                                            <textarea id="suggested-edit" rows="3"></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-buttons">
+                                        <button class="btn-cancel">Cancel</button>
+                                        <button class="btn-submit">Submit</button>
+                                    </div>
+                                </div>
+                            `;
 
-                                // Apply the 'comment' format with a temporary ID
-                                var tempId = 'temp-' + Date.now();
-                                quill.formatText(range.index, range.length, 'comment', tempId);
+                            document.body.appendChild(modal);
 
-                                // Move the cursor to the end of the formatted range
-                                quill.setSelection(range.index + range.length, 0);
+                            // Update the toggle handler
+                            const editToggle = modal.querySelector('#suggest-edit-toggle');
+                            const editContainer = modal.querySelector('#edit-container');
+                            const editTextarea = modal.querySelector('#suggested-edit');
 
-                                // Reset the 'comment' format so that new text does not inherit it
-                                quill.format('comment', false);
-                            }
+                            editToggle.addEventListener('change', function() {
+                                editContainer.style.display = this.checked ? 'block' : 'none';
+                                if (this.checked) {
+                                    editTextarea.value = selectedText;
+                                    editTextarea.focus();
+                                    editTextarea.setSelectionRange(0, editTextarea.value.length);
+                                }
+                            });
+
+                            // Handle submit
+                            modal.querySelector('.btn-submit').addEventListener('click', function() {
+                                const commentContent = modal.querySelector('#comment-text').value;
+                                const suggestedEdit = editToggle.checked ? editTextarea.value : null;
+
+                                if (commentContent) {
+                                    const message = JSON.stringify({
+                                        'type': 'comment',
+                                        'comment': {
+                                            'range': range,
+                                            'content': commentContent,
+                                            'suggested_edit': suggestedEdit
+                                        }
+                                    });
+                                    socket.send(message);
+                                }
+                                modal.remove();
+                            });
+
+                            // Handle cancel
+                            modal.querySelector('.btn-cancel').addEventListener('click', function() {
+                                modal.remove();
+                            });
                         } else {
                             alert('Please select text to comment on.');
                         }
@@ -568,17 +725,31 @@
     // Function to display a comment
     function displayComment(data) {
         var commentsContainer = document.getElementById('comments-container');
-        if (!commentsContainer) {
-            return;
-        }
+        if (!commentsContainer) return;
+
         var commentDiv = document.createElement('div');
         commentDiv.classList.add('comment');
         commentDiv.id = 'comment-' + data.comment.id;
+
+        const hasEdit = data.comment.suggested_edit !== null;
+        
         commentDiv.innerHTML = `
             <div class="content">${data.comment.content}</div>
+            ${hasEdit ? `
+                <div class="suggested-edit">
+                    <div class="edit-label">Suggested Edit:</div>
+                    <div class="edit-content">${data.comment.suggested_edit}</div>
+                    <button class="apply-edit-btn" onclick="applyEdit(${data.comment.id}); event.stopPropagation();">
+                        Apply Edit
+                    </button>
+                </div>
+            ` : ''}
             <div class="meta">By ${data.username}</div>
-            <div class="resolve-btn" onclick="resolveComment(${data.comment.id}); event.stopPropagation();">Resolve</div>
+            <div class="resolve-btn" onclick="resolveComment(${data.comment.id}); event.stopPropagation();">
+                Resolve
+            </div>
         `;
+
         commentsContainer.appendChild(commentDiv);
 
         // Update the 'comment' format with the actual comment ID
@@ -1044,6 +1215,37 @@
                 console.error('Error:', error);
                 alert('Error deleting version.');
             });
+        }
+    }
+
+    // Add function to apply edit
+    function applyEdit(commentId) {
+        const comment = document.getElementById('comment-' + commentId);
+        const ranges = findCommentRanges(commentId);
+        
+        if (ranges.length > 0) {
+            const suggestedEdit = comment.querySelector('.edit-content').textContent;
+            const range = ranges[0];
+            
+            // Create a delta for the text replacement
+            let Delta = Quill.import('delta');
+            let delta = new Delta()
+                .retain(range.index)
+                .delete(range.length)
+                .insert(suggestedEdit);
+            
+            // Apply the change locally
+            quill.updateContents(delta, 'user');
+            
+            // Send the delta to other clients
+            const message = JSON.stringify({
+                'type': 'delta',
+                'delta': delta.ops
+            });
+            socket.send(message);
+            
+            // Resolve the comment after applying the edit
+            resolveComment(commentId);
         }
     }
 </script>
