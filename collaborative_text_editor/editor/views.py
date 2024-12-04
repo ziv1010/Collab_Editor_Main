@@ -165,3 +165,22 @@ def preview_version(request, pk, version_id):
         'created_at': version.created_at.strftime('%Y-%m-%d %H:%M:%S'),
         'username': version.user.username if version.user else 'Unknown'
     })
+
+@csrf_exempt
+@login_required
+def delete_version(request, pk):
+    if request.method == 'POST':
+        document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+        try:
+            data = json.loads(request.body)
+            version_id = data.get('version_id')
+            if version_id:
+                version = get_object_or_404(DocumentVersion, pk=version_id, document=document)
+                version.delete()
+                return JsonResponse({'status': 'success'})
+            else:
+                return HttpResponseBadRequest('No version ID provided.')
+        except json.JSONDecodeError:
+            return HttpResponseBadRequest('Invalid JSON.')
+    else:
+        return HttpResponseBadRequest('Invalid request method.')
