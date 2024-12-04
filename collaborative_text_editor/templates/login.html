@@ -129,6 +129,46 @@
         content: "$ ";
         color: #61dafb;
     }
+
+    .loader-spinner {
+        width: 200px;
+        height: 6px;
+        background: #2d2d2d;
+        border-radius: 3px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .loader-spinner::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        height: 100%;
+        width: 50px;
+        background: linear-gradient(90deg, 
+            transparent,
+            #61dafb,
+            transparent
+        );
+        animation: loadingBar 1s ease infinite;
+    }
+
+    @keyframes loadingBar {
+        0% {
+            left: -50px;
+        }
+        100% {
+            left: 100%;
+        }
+    }
+
+    .loader-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1.5rem;
+    }
 </style>
 {% endblock %}
 
@@ -160,4 +200,53 @@
         </div>
     </div>
 </div>
+<script>
+document.querySelector('form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const loader = document.getElementById('page-loader');
+    const loaderText = loader.querySelector('.loader-text');
+    const welcomeMsg = loader.querySelector('.welcome-message');
+    const form = this;
+    const username = document.querySelector('input[name="username"]').value;
+    
+    loader.classList.remove('hidden');
+    
+    // Shorter, cooler messages
+    const messages = [
+        'Authenticating',
+        'Access granted',
+        'Loading workspace'
+    ];
+    
+    let messageIndex = 0;
+    let charIndex = 0;
+    
+    function typeMessage() {
+        if (messageIndex < messages.length) {
+            if (charIndex < messages[messageIndex].length) {
+                loaderText.textContent = messages[messageIndex].substring(0, charIndex + 1);
+                charIndex++;
+                setTimeout(typeMessage, 30); // Faster typing speed
+            } else {
+                setTimeout(() => {
+                    charIndex = 0;
+                    messageIndex++;
+                    typeMessage();
+                }, 400); // Shorter pause between messages
+            }
+        } else {
+            // Show personalized welcome message
+            welcomeMsg.textContent = `Welcome, ${username}`;
+            welcomeMsg.classList.add('show');
+            
+            // Submit form sooner
+            setTimeout(() => {
+                form.submit();
+            }, 800);
+        }
+    }
+    
+    typeMessage();
+});
+</script>
 {% endblock %}
