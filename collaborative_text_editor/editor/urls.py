@@ -20,4 +20,5 @@ urlpatterns = [
     path('document/<int:pk>/restore_version/', views.restore_version, name='restore_version'),
     path('document/<int:pk>/version/<int:version_id>/preview/', views.preview_version, name='preview_version'),
     path('document/<int:pk>/delete_version/', views.delete_version, name='delete_version'),
+    path('document/<int:pk>/download/', views.download_as_doc, name='download_as_doc'),
 ]

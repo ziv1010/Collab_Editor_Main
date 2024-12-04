@@ -5,8 +5,10 @@ from django.contrib.auth import login
 from .forms import RegisterForm, DocumentForm, CollaboratorsForm 
 from .models import Document, Comment, DocumentVersion  # Import DocumentVersion
 from django.contrib.auth.decorators import login_required
-from django.http import JsonResponse, HttpResponseBadRequest
+from django.http import JsonResponse, HttpResponseBadRequest, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
+from docx import Document as DocxDocument
+from docx.shared import Inches
 import json
 
 def register(request):
@@ -184,3 +186,40 @@ def delete_version(request, pk):
             return HttpResponseBadRequest('Invalid JSON.')
     else:
         return HttpResponseBadRequest('Invalid request method.')
+
+@login_required
+def download_as_doc(request, pk):
+    document = get_object_or_404(Document, pk=pk, collaborators=request.user)
+    
+    # Create a new Word document
+    docx = DocxDocument()
+    
+    # Get the content and parse it from JSON
+    if document.content:
+        content = json.loads(document.content)
+        for op in content.get('ops', []):
+            # Extract text content
+            text = op.get('insert', '')
+            if isinstance(text, str):
+                # Add paragraph to the Word document
+                paragraph = docx.add_paragraph()
+                run = paragraph.add_run(text)
+                
+                # Apply basic formatting if available
+                attributes = op.get('attributes', {})
+                if attributes:
+                    if attributes.get('bold'):
+                        run.bold = True
+                    if attributes.get('italic'):
+                        run.italic = True
+                    if attributes.get('underline'):
+                        run.underline = True
+    
+    # Create the response with the correct content type
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    response['Content-Disposition'] = f'attachment; filename="{document.title}.docx"'
+    
+    # Save the document to the response
+    docx.save(response)
+    
+    return response
